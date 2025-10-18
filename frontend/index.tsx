@@ -1,4 +1,7 @@
-import {callable, sleep } from "@steambrew/client";
+import {callable, Millennium, sleep } from "@steambrew/client";
+
+const WaitForElement = async (sel: string, parent = document) =>
+	[...(await Millennium.findElement(parent, sel))][0];
 
 const call_back = callable<[{ app_path: string }], string>('Backend.call_back');
 const get_url_data = callable<[{ url: string }], string>('Backend.get_url_data');
@@ -11,7 +14,6 @@ async function SyncLog(textS: string) {
 }
 
 let global_object_settings = "";
-let RSSWasSpawned = false;
 
 function xmlToObject(xmlStr) {
   const parser = new DOMParser();
@@ -57,10 +59,26 @@ function xmlToObject(xmlStr) {
 async function SpawnRSS(popup: any, object_settings: any) {
     SyncLog("try to spawn rss");
 
-    if (!RSSWasSpawned) {
-        RSSWasSpawned = true;
+    let WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
+
+    if (WideRightPanel == null || WideRightPanel == undefined) return;
+
+    if (popup.m_popup.document.getElementById("RSSNewBlock") == null 
+    || popup.m_popup.document.getElementById("RSSNewBlock") == undefined) 
+    {
+        SyncLog("start spawn rss");
 
         const result = await get_url_data({ url: object_settings.rss_link });
+
+        if (popup.m_popup.document.getElementById("RSSNewBlock") != null 
+            && popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
+        {
+            return;
+        }
+
+        WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
+
+        if (WideRightPanel == null || WideRightPanel == undefined) return;
 
         SyncLog("Answer on rss was get");
 
@@ -72,6 +90,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
         catch (error) {
             SyncLog("EROOR: " + error);
             await print_error({ text: "EROOR: " + error });
+            return;
         }
 
         SyncLog("objectJson corrected convert");
@@ -151,6 +170,8 @@ async function SpawnRSS(popup: any, object_settings: any) {
                 });
             });
 
+            newsBlock.id = "RSSNewBlock";
+
             newsBlocksList.push(newsBlock);
         });
 
@@ -203,6 +224,23 @@ async function OnPopupCreation(popup: any) {
     }
 
     if (popup.m_strName === "SP Desktop_uid0") {
+        const WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
+    
+        if (WideRightPanel == null || WideRightPanel == undefined) return;
+
+        const observer = new MutationObserver((mutationsList) => {
+            for (const mutation of mutationsList) {
+                if (mutation.type === "childList") {
+                    SpawnRSS(popup, global_object_settings);
+                }
+            }
+        });
+
+        observer.observe(WideRightPanel, {
+            childList: true,
+            subtree: true
+        });
+
         SpawnRSS(popup, global_object_settings);
     }
 }

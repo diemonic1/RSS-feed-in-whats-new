@@ -1,6 +1,7 @@
 import Millennium, PluginUtils # type: ignore
 import subprocess
 import os
+import time
 
 logger = PluginUtils.Logger()
 
@@ -11,6 +12,9 @@ except:
     from polyfills import requests
 
 settings = ""
+
+lastDownloadingTime = 0
+cachedResponse = None
 
 def launchWithoutConsole(command):
     startupinfo = subprocess.STARTUPINFO()
@@ -25,9 +29,28 @@ class Backend:
 
     @staticmethod
     def get_url_data(url):
+        global lastDownloadingTime, cachedResponse
+
         logger.log("[RSS-feed-in-whats-new] try to get " + url)
+
+        currentTime = time.time()
+
+        if lastDownloadingTime == 0:
+            search_response = requests.get(url)
+            cachedResponse = search_response.text
+            lastDownloadingTime = currentTime
+            return cachedResponse
+
+        if currentTime - lastDownloadingTime < 20:
+            logger.log("[RSS-feed-in-whats-new] using cached data")
+            return cachedResponse
+
         search_response = requests.get(url)
-        return str(search_response.text)
+        cachedResponse = search_response.text
+        lastDownloadingTime = currentTime
+        logger.log("[RSS-feed-in-whats-new] cache updated")
+
+        return cachedResponse
 
     @staticmethod
     def print_log(text):
