@@ -1,0 +1,8 @@
+{
+    "$schema": "https://raw.githubusercontent.com/SteamClientHomebrew/Millennium/main/src/sys/plugin-schema.json",
+
+    "name": "RSS-feed-in-whats-new",
+    "common_name": "RSS feed in whats new",
+    "description": "A plugin for adding RSS new to whats new block",
+    "version": "1.0.0"
+}
