@@ -13,7 +13,7 @@
   "type": "module",
   "name": "rss-feed-in-whats-new",
   "version": "1.0.0",
-  "description": "A plugin for adding RSS new to whats new block",
+  "description": "A plugin for adding RSS news to whats new block",
   "main": "./frontend/index.jsx",
   "author": "D!EMONIC",
   "license": "MIT",
