@@ -37,6 +37,14 @@ alternateEveryNblocks - the interval between RSS news and Steam news
 
 newsBlocksRange - the number of consecutive RSS news blocks to insert
 
+highlite_english_letter - whether to highlight English letters within headlines (useful if the news is not in English)
+
+highlite_numbers - whether to highlight numbers within headlines
+
+highlite_quotes - whether to highlight text enclosed in quotation marks within headlines
+
+You can set a different color for each character highlight. The default color is white.
+
 # Example settings:
 ```
 "newsCount": "4",
