@@ -15,6 +15,109 @@ async function SyncLog(textS: string) {
 
 let global_object_settings = "";
 
+function ChangeTitle(s: string, object_settings: any) {
+
+    if (s.length > 125) {
+        s = s.slice(0, 125) + '…';
+    }
+
+    while (s.includes("&amp;#039;")) {
+		s = s.replace("&amp;#039;", "'");
+	}
+	while (s.includes("&amp;amp;")) {
+		s = s.replace("&amp;amp;", "&");
+	}
+	while (s.includes("&amp;")) {
+		s = s.replace("&amp;", "&");
+	}
+
+	let answer = "";
+	let flag = false;
+
+    if (object_settings.highlite_english_letter == "true") {
+        for (let i = 0; i < s.length; i++) {
+            if (isCharacterALetter(s[i]) && flag == false) {
+                flag = true;
+                answer += '<span style="color:' + object_settings.highlite_english_letters_color + '">' + s[i];
+            }
+            else if (isCharacterALetter(s[i]) && flag == true) {
+                answer += s[i];
+            }
+            else if (s[i] == " " && flag == true) {
+                flag = false;
+                answer += '</span>' + s[i];
+            }
+            else if (isCharacterALetter(s[i]) == false) {
+                answer += s[i];
+            }
+        }
+    }
+    else {
+        answer = s;
+    }
+
+    let answer2 = "";
+    flag = false;
+
+    if (object_settings.highlite_numbers == "true") {
+        for (let i = 0; i < answer.length; i++) {
+            if (isCharacterNumber(answer[i]) && flag == false) {
+                flag = true;
+                answer2 += '<span style="color:' + object_settings.highlite_numbers_color + '">' + answer[i];
+            }
+            else if (isCharacterNumber(answer[i]) && flag == true) {
+                answer2 += answer[i];
+            }
+            else if ((answer[i] == " " || isCharacterALetter(answer[i]) == true || answer[i] == "<") && flag == true) {
+                flag = false;
+                answer2 += '</span>' + answer[i];
+            }
+            else if (isCharacterNumber(answer[i]) == false) {
+                answer2 += answer[i];
+            }
+        }
+    }
+    else {
+        answer2 = answer;
+    }
+
+	let answer3 = "";
+	flag = false;
+
+    if (object_settings.highlite_quotes == "true") {
+        for (let i = 0; i < answer2.length; i++) {
+            if ((answer2[i] == "'" || answer2[i] == "`" || answer2[i] == "«" || answer2[i] == '"') && flag == false) {
+                if (answer2[i - 1] != "=" && answer2[i + 1] != ">") {
+                    flag = true;
+                    answer3 += '<span style="color:' + object_settings.highlite_quotes_color + '">' + answer2[i];
+                }
+            }
+            else if ((answer2[i] == "'" || answer2[i] == "`" || answer2[i] == "»" || answer2[i] == '"') && flag == true) {
+                if (answer2[i - 1] != "=" && answer2[i + 1] != ">") {
+                    flag = false;
+                    answer3 += answer2[i] + '</span>';
+                }
+            }
+            else {
+                answer3 += answer2[i];
+            }
+        }
+    }
+    else {
+        answer3 = answer2;
+    }
+
+	return answer3;
+}
+
+function isCharacterALetter(char) {
+	return (/[a-zA-Z]/).test(char)
+}
+
+function isCharacterNumber(char) {
+	return (/[0-9]/).test(char)
+}
+
 function xmlToObject(xmlStr) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlStr, "application/xml");
@@ -139,9 +242,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
                 description = description.slice(0, 125) + '…';
             }
 
-            if (title.length > 125) {
-                title = title.slice(0, 125) + '…';
-            }
+            title = ChangeTitle(title, object_settings);
 
             const link = element.link;
 
@@ -162,7 +263,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
             }
 
             newsBlock.removeChild(newsBlock.children[3]);
-            newsBlock.children[2].textContent = title;
+            newsBlock.children[2].innerHTML = title;
 
             newsBlock.children[1].children[1].addEventListener("click", async () => {
                 let result = await call_back({
