@@ -332,6 +332,8 @@ async function OnPopupCreation(popup: any) {
     
         if (WideRightPanel == null || WideRightPanel == undefined) return;
 
+        const WideRightPanelParent = WideRightPanel.parentElement.parentElement;
+
         const observer = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 if (mutation.type === "childList") {
@@ -340,7 +342,7 @@ async function OnPopupCreation(popup: any) {
             }
         });
 
-        observer.observe(WideRightPanel, {
+        observer.observe(WideRightPanelParent, {
             childList: true,
             subtree: true
         });
