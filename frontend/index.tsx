@@ -24,6 +24,9 @@ function ChangeTitle(s: string, object_settings: any) {
     while (s.includes("&amp;#039;")) {
 		s = s.replace("&amp;#039;", "'");
 	}
+    while (s.includes("&#039;")) {
+		s = s.replace("&#039;", "'");
+	}
 	while (s.includes("&amp;amp;")) {
 		s = s.replace("&amp;amp;", "&");
 	}
