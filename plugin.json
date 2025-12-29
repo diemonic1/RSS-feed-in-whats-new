@@ -4,5 +4,6 @@
     "name": "RSS-feed-in-whats-new",
     "common_name": "RSS feed in whats new",
     "description": "A plugin for adding RSS new to whats new block",
-    "version": "1.0.0"
+    "version": "1.0.0",
+	"backendType": "lua"
 }

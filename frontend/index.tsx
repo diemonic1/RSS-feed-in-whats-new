@@ -1,13 +1,15 @@
-import {callable, Millennium, sleep } from "@steambrew/client";
+import { Millennium, IconsModule, definePlugin, callable, Field, DialogButton } from '@steambrew/client';
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
 
-const call_back = callable<[{ app_path: string }], string>('Backend.call_back');
-const get_url_data = callable<[{ url: string }], string>('Backend.get_url_data');
-const print_log = callable<[{ text: string }], string>('Backend.print_log');
-const print_error = callable<[{ text: string }], string>('Backend.print_error');
-const get_settings = callable<[{}], string>('Backend.get_settings');
+const call_back = callable<[{ app_path: string }], string>('call_back');
+const get_url_data = callable<[{ url: string }], string>('get_url_data');
+const print_log = callable<[{ text: string }], string>('print_log');
+const print_error = callable<[{ text: string }], string>('print_error');
+const get_settings = callable<[{}], string>('get_settings');
+const open_github = callable<[{}], string>('open_github');
+const open_settings = callable<[{}], string>('open_settings');
 
 async function SyncLog(textS: string) {
     await print_log({ text: textS });
@@ -308,7 +310,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
 }
 
 async function OnPopupCreation(popup: any) {
-    await print_log({ text: "OnPopupCreation"});
+    SyncLog("OnPopupCreation");
 
     if (global_object_settings == "")
     {
@@ -351,21 +353,37 @@ async function OnPopupCreation(popup: any) {
     }
 }
 
-export default async function PluginMain() {
-    console.log("[millennium-apps-buttons] frontend startup");
-    await App.WaitForServicesInitialized();
+const SettingsContent = () => {
+	return (
+        <>
+            <Field label="Instructions" description="You can read how to configure the plugin on the plugin's GitHub page." icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
+                <DialogButton
+                    onClick={() => {
+                        open_github({});
+                    }}
+                >
+                    Open GitHub
+                </DialogButton>
+            </Field>
+            <Field label="File" description="Settings are stored in a file settings.json. Click the button to open the folder it is in" icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
+                <DialogButton
+                    onClick={() => {
+                        open_settings({});
+                    }}
+                >
+                    Open the folder with the settings file
+                </DialogButton>
+            </Field>
+        </>
+	);
+};
 
-    while (
-        typeof g_PopupManager === 'undefined' ||
-        typeof MainWindowBrowserManager === 'undefined'
-    ) {
-        await sleep(100);
-    }
+export default definePlugin(() => {
+	Millennium.AddWindowCreateHook(OnPopupCreation);
 
-    const doc = g_PopupManager.GetExistingPopup("SP Desktop_uid0");
-	if (doc) {
-		OnPopupCreation(doc);
-	}
-
-	g_PopupManager.AddPopupCreatedCallback(OnPopupCreation);
-}
+	return {
+		title: 'RSS feed in Whats New',
+		icon: <IconsModule.Settings />,
+		content: <SettingsContent />,
+	};
+});
