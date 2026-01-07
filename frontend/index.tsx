@@ -3,13 +3,11 @@ import { Millennium, IconsModule, definePlugin, callable, Field, DialogButton } 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
 
-const call_back = callable<[{ app_path: string }], string>('call_back');
 const get_url_data = callable<[{ url: string }], string>('get_url_data');
 const print_log = callable<[{ text: string }], string>('print_log');
 const print_error = callable<[{ text: string }], string>('print_error');
 const get_settings = callable<[{}], string>('get_settings');
-const open_github = callable<[{}], string>('open_github');
-const open_settings = callable<[{}], string>('open_settings');
+const get_installPath = callable<[{}], string>('get_installPath');
 
 async function SyncLog(textS: string) {
     await print_log({ text: textS });
@@ -271,9 +269,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
             newsBlock.children[2].innerHTML = title;
 
             newsBlock.children[1].children[1].addEventListener("click", async () => {
-                let result = await call_back({
-                    app_path: link
-                });
+    			SteamClient.System.OpenInSystemBrowser(link);
             });
 
             newsBlock.id = "RSSNewBlock";
@@ -359,7 +355,7 @@ const SettingsContent = () => {
             <Field label="Instructions" description="You can read how to configure the plugin on the plugin's GitHub page." icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
                 <DialogButton
                     onClick={() => {
-                        open_github({});
+    					SteamClient.System.OpenInSystemBrowser("https://github.com/diemonic1/Apps-buttons");
                     }}
                 >
                     Open GitHub
@@ -367,8 +363,9 @@ const SettingsContent = () => {
             </Field>
             <Field label="File" description="Settings are stored in a file settings.json. Click the button to open the folder it is in" icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
                 <DialogButton
-                    onClick={() => {
-                        open_settings({});
+					onClick={async () => {
+						const installPath = await get_installPath({});
+						SteamClient.System.OpenLocalDirectoryInSystemExplorer(installPath)
                     }}
                 >
                     Open the folder with the settings file
