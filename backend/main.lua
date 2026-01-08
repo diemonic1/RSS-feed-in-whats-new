@@ -1,5 +1,6 @@
 local logger = require("logger")
 local millennium = require("millennium")
+local utils = require("utils")
 local http = require("http")
 
 -- ====== STATE ======
@@ -12,12 +13,7 @@ local CACHE_TIMEOUT = 20 -- seconds
 -- ====== read_file ======
 
 local function read_file(path)
-    local file = io.open(path, "r")
-    if not file then
-        return nil
-    end
-    local content = file:read("*a")
-    file:close()
+    local content, err = utils.read_file(path)
     return content
 end
 
@@ -28,7 +24,7 @@ function get_settings()
 end
 
 function get_installPath()
-    return tostring(millennium.get_install_path() .. "/plugins/Apps-buttons")
+    return tostring(string.gsub(utils.get_backend_path(), "\\backend", ""))
 end
 
 function get_url_data(url)
@@ -79,7 +75,10 @@ local function on_load()
 
     logger:info("Plugin base dir: " .. millennium.get_install_path())
 
-    local settings_path = millennium.get_install_path() .. "/plugins/RSS-feed-in-whats-new/settings.json"
+    local install_path = get_installPath()
+    logger:info("install path: " .. install_path)
+
+    local settings_path = install_path .. "/settings.json"
     logger:info("settings path: " .. settings_path)
 
     local content = read_file(settings_path)
