@@ -3,7 +3,7 @@
 
     "name": "RSS-feed-in-whats-new",
     "common_name": "RSS feed in whats new",
-    "description": "A plugin for adding RSS new to whats new block",
+    "description": "A plugin for adding RSS news to whats new block in Steam",
     "version": "1.0.0",
 	"backendType": "lua"
 }

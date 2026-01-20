@@ -1,4 +1,6 @@
 import { Millennium, IconsModule, definePlugin, callable, Field, DialogButton } from '@steambrew/client';
+import { useState, useEffect } from 'react';
+import { getSettings, saveSettings } from './services/settings';
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -6,111 +8,61 @@ const WaitForElement = async (sel: string, parent = document) =>
 const get_url_data = callable<[{ url: string }], string>('get_url_data');
 const print_log = callable<[{ text: string }], string>('print_log');
 const print_error = callable<[{ text: string }], string>('print_error');
-const get_settings = callable<[{}], string>('get_settings');
-const get_installPath = callable<[{}], string>('get_installPath');
 
 async function SyncLog(textS: string) {
     await print_log({ text: textS });
 }
 
-let global_object_settings = "";
+let settings = null;
+let popupGlobal = null;
 
-function ChangeTitle(s: string, object_settings: any) {
-
-    if (s.length > 125) {
-        s = s.slice(0, 125) + '…';
+function ChangeTitle(result: string) {
+    if (result.length > 125) {
+        result = result.slice(0, 125) + '…';
     }
 
-    while (s.includes("&amp;#039;")) {
-		s = s.replace("&amp;#039;", "'");
-	}
-    while (s.includes("&#039;")) {
-		s = s.replace("&#039;", "'");
-	}
-	while (s.includes("&amp;amp;")) {
-		s = s.replace("&amp;amp;", "&");
-	}
-	while (s.includes("&amp;")) {
-		s = s.replace("&amp;", "&");
-	}
+    // ===== english letters =====
+    if (settings.highlite_english_letters) {
+        const englishRegex =
+            /\b[A-Za-z]+(?:[^\w<>]{1,3}[A-Za-z]+)+\b|\b[A-Za-z]+\b/g;
 
-	let answer = "";
-	let flag = false;
-
-    if (object_settings.highlite_english_letter == "true") {
-        for (let i = 0; i < s.length; i++) {
-            if (isCharacterALetter(s[i]) && flag == false) {
-                flag = true;
-                answer += '<span style="color:' + object_settings.highlite_english_letters_color + '">' + s[i];
-            }
-            else if (isCharacterALetter(s[i]) && flag == true) {
-                answer += s[i];
-            }
-            else if (s[i] == " " && flag == true) {
-                flag = false;
-                answer += '</span>' + s[i];
-            }
-            else if (isCharacterALetter(s[i]) == false) {
-                answer += s[i];
-            }
-        }
-    }
-    else {
-        answer = s;
+        result = result.replace(
+            englishRegex,
+            (match) =>
+                `<span style="color:${settings.highlite_english_letters_color}">${match}</span>`
+        );
     }
 
-    let answer2 = "";
-    flag = false;
-
-    if (object_settings.highlite_numbers == "true") {
-        for (let i = 0; i < answer.length; i++) {
-            if (isCharacterNumber(answer[i]) && flag == false) {
-                flag = true;
-                answer2 += '<span style="color:' + object_settings.highlite_numbers_color + '">' + answer[i];
-            }
-            else if (isCharacterNumber(answer[i]) && flag == true) {
-                answer2 += answer[i];
-            }
-            else if ((answer[i] == " " || isCharacterALetter(answer[i]) == true || answer[i] == "<") && flag == true) {
-                flag = false;
-                answer2 += '</span>' + answer[i];
-            }
-            else if (isCharacterNumber(answer[i]) == false) {
-                answer2 += answer[i];
-            }
-        }
-    }
-    else {
-        answer2 = answer;
+    // ===== numbers =====
+    if (settings.highlite_numbers) {
+        result = result.replace(
+            /\b\d+\b/g,
+            (match) =>
+                `<span style="color:${settings.highlite_numbers_color}">${match}</span>`
+        );
     }
 
-	let answer3 = "";
-	flag = false;
+    // ===== quotes =====
+    if (settings.highlite_quotes) {
+        const quotesRegex =
+            /(?<![A-Za-z0-9=])(["'`«»])(.*?)(\1)(?![A-Za-z0-9>])/g;
 
-    if (object_settings.highlite_quotes == "true") {
-        for (let i = 0; i < answer2.length; i++) {
-            if ((answer2[i] == "'" || answer2[i] == "`" || answer2[i] == "«" || answer2[i] == '"') && flag == false) {
-                if (answer2[i - 1] != "=" && answer2[i + 1] != ">") {
-                    flag = true;
-                    answer3 += '<span style="color:' + object_settings.highlite_quotes_color + '">' + answer2[i];
-                }
+        result = result.replace(
+            quotesRegex,
+            (match, open, content, close) => {
+                return `<span style="color:${settings.highlite_quotes_color}">${open}${content}${close}</span>`;
             }
-            else if ((answer2[i] == "'" || answer2[i] == "`" || answer2[i] == "»" || answer2[i] == '"') && flag == true) {
-                if (answer2[i - 1] != "=" && answer2[i + 1] != ">") {
-                    flag = false;
-                    answer3 += answer2[i] + '</span>';
-                }
-            }
-            else {
-                answer3 += answer2[i];
-            }
-        }
-    }
-    else {
-        answer3 = answer2;
+        );
     }
 
-	return answer3;
+    // ===== HTML entities cleanup =====
+    result = result
+        .replace(/&amp;#039;/g, "'")
+        .replace(/&#039;/g, "'")
+        .replace(/&amp;amp;/g, "&")
+        .replace(/&amp;/g, "&");
+
+    return result;
 }
 
 function isCharacterALetter(char) {
@@ -162,22 +114,28 @@ function xmlToObject(xmlStr) {
   return parseNode(xmlDoc.documentElement);
 }
 
-async function SpawnRSS(popup: any, object_settings: any) {
+async function SpawnRSS(popup: any) {
     SyncLog("try to spawn rss");
 
     let WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
 
     if (WideRightPanel == null || WideRightPanel == undefined) return;
 
-    if (popup.m_popup.document.getElementById("RSSNewBlock") == null 
-    || popup.m_popup.document.getElementById("RSSNewBlock") == undefined) 
+    if (popup.m_popup.document.getElementById("RSSNewBlock") == undefined) 
     {
         SyncLog("start spawn rss");
 
-        const result = await get_url_data({ url: object_settings.rss_link });
+        let result = "";
 
-        if (popup.m_popup.document.getElementById("RSSNewBlock") != null 
-            && popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
+        if (settings.rss_link == "other")
+        {
+            result = await get_url_data({ url: settings.custom_rss_link });
+        }
+        else {
+            result = await get_url_data({ url: settings.rss_link });
+        }
+
+        if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
         {
             return;
         }
@@ -204,7 +162,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
         console.log("objectJson corrected convert")
         console.log(objectJson)
 
-        const newsCount = Number(object_settings.newsCount);
+        const newsCount = Number(settings.newsCount);
 
         objectJson = objectJson.channel.item.slice(0, newsCount + 1);
 
@@ -245,7 +203,7 @@ async function SpawnRSS(popup: any, object_settings: any) {
                 description = description.slice(0, 125) + '…';
             }
 
-            title = ChangeTitle(title, object_settings);
+            title = ChangeTitle(title);
 
             const link = element.link;
 
@@ -277,8 +235,8 @@ async function SpawnRSS(popup: any, object_settings: any) {
             newsBlocksList.push(newsBlock);
         });
 
-        const repeatEvery = Number(object_settings.alternateEveryNblocks);
-        const newsBlocksRange = Number(object_settings.newsBlocksRange);
+        const repeatEvery = Number(settings.alternateEveryNblocks);
+        const newsBlocksRange = Number(settings.newsBlocksRange);
 
         if (repeatEvery === 0) {
             newsBlocksList.reverse().forEach(el => list.insertBefore(el, list.firstChild));
@@ -308,24 +266,8 @@ async function SpawnRSS(popup: any, object_settings: any) {
 async function OnPopupCreation(popup: any) {
     SyncLog("OnPopupCreation");
 
-    if (global_object_settings == "")
-    {
-        SyncLog("start get_settings");
-
-        const jsonStr = await get_settings({});
-        
-        SyncLog("jsonStr: " + jsonStr);
-
-        try {
-            global_object_settings = JSON.parse(jsonStr);
-            SyncLog("valid json: " + global_object_settings);
-        } catch (e) {
-            await print_error({ text: "invalid json: " + e});
-            return;
-        }
-    }
-
     if (popup.m_strName === "SP Desktop_uid0") {
+        popupGlobal = popup;
         const WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
     
         if (WideRightPanel == null || WideRightPanel == undefined) return;
@@ -335,7 +277,7 @@ async function OnPopupCreation(popup: any) {
         const observer = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 if (mutation.type === "childList") {
-                    SpawnRSS(popup, global_object_settings);
+                    SpawnRSS(popup);
                 }
             }
         });
@@ -345,37 +287,247 @@ async function OnPopupCreation(popup: any) {
             subtree: true
         });
 
-        SpawnRSS(popup, global_object_settings);
+        SpawnRSS(popup);
     }
 }
 
+function UpdateSettings() {
+    settings = getSettings();
+
+    if (popupGlobal.m_popup.document.getElementById("RSSNewBlock") != undefined){
+        while (popupGlobal.m_popup.document.getElementById("RSSNewBlock") != undefined){
+            const el = popupGlobal.m_popup.document.getElementById("RSSNewBlock");
+            el.remove();
+        }
+    }
+
+    SpawnRSS(popupGlobal)
+}
+
 const SettingsContent = () => {
-	return (
-        <>
-            <Field label="Instructions" description="You can read how to configure the plugin on the plugin's GitHub page." icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
-                <DialogButton
-                    onClick={() => {
-    					SteamClient.System.OpenInSystemBrowser("https://github.com/diemonic1/Apps-buttons");
-                    }}
-                >
-                    Open GitHub
-                </DialogButton>
-            </Field>
-            <Field label="File" description="Settings are stored in a file settings.json. Click the button to open the folder it is in" icon={<IconsModule.Settings />} bottomSeparator="standard" focusable>
-                <DialogButton
-					onClick={async () => {
-						const installPath = await get_installPath({});
-						SteamClient.System.OpenLocalDirectoryInSystemExplorer(installPath)
-                    }}
-                >
-                    Open the folder with the settings file
-                </DialogButton>
-            </Field>
-        </>
-	);
+  const [newsCount, setNewsCount] = useState('10');
+  const [alternateEveryNblocks, setAlternateEveryNblocks] = useState('1');
+  const [newsBlocksRange, setNewsBlocksRange] = useState('2');
+  const [highlite_english_letters, set_highlite_english_letters] = useState(false);
+  const [highlite_english_letters_color, set_highlite_english_letters_color] = useState('#ffffff');
+  const [highlite_numbers, set_highlite_numbers] = useState(true);
+  const [highlite_numbers_color, set_highlite_numbers_color] = useState('#ffffff');
+  const [highlite_quotes, set_highlite_quotes] = useState(true);
+  const [highlite_quotes_color, set_highlite_quotes_color] = useState('#ffffff');
+  const [rss_link, set_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
+  const [custom_rss_link, set_custom_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
+
+  useEffect(() => {
+    const settings = getSettings();
+    setNewsCount(String(settings.newsCount));
+    setAlternateEveryNblocks(String(settings.alternateEveryNblocks));
+    setNewsBlocksRange(String(settings.newsBlocksRange));
+    set_highlite_english_letters(settings.highlite_english_letters);
+    set_highlite_english_letters_color(settings.highlite_english_letters_color);
+    set_highlite_numbers(settings.highlite_numbers);
+    set_highlite_numbers_color(settings.highlite_numbers_color);
+    set_highlite_quotes(settings.highlite_quotes);
+    set_highlite_quotes_color(settings.highlite_quotes_color);
+    set_rss_link(settings.rss_link);
+    set_custom_rss_link(settings.custom_rss_link);
+  }, []);
+
+  const onNewsCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewsCount(value);
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
+      saveSettings({ ...getSettings(), newsCount: numValue });
+      UpdateSettings();
+    }
+  };
+
+  const onAlternateEveryNblocksChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setAlternateEveryNblocks(value);
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 10) {
+      saveSettings({ ...getSettings(), alternateEveryNblocks: numValue });
+      UpdateSettings();
+    }
+  };
+
+  const onNewsBlocksRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewsBlocksRange(value);
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
+      saveSettings({ ...getSettings(), newsBlocksRange: numValue });
+      UpdateSettings();
+    }
+  };
+
+  const onhighlite_english_lettersChange = (checked: boolean) => {
+    set_highlite_english_letters(checked);
+    saveSettings({ ...getSettings(), highlite_english_letters: checked });
+    UpdateSettings();
+  };
+
+  const onhighlite_english_letters_colorChange = (value: string) => {
+    set_highlite_english_letters_color(value);
+    saveSettings({ ...getSettings(), highlite_english_letters_color: value });
+    UpdateSettings();
+  };
+
+  const onhighlite_numbersChange = (checked: boolean) => {
+    set_highlite_numbers(checked);
+    saveSettings({ ...getSettings(), highlite_numbers: checked });
+    UpdateSettings();
+  };
+
+  const onhighlite_numbers_colorChange = (value: string) => {
+    set_highlite_numbers_color(value);
+    saveSettings({ ...getSettings(), highlite_numbers_color: value });
+    UpdateSettings();
+  };
+
+  const onhighlite_quotesChange = (checked: boolean) => {
+    set_highlite_quotes(checked);
+    saveSettings({ ...getSettings(), highlite_quotes: checked });
+    UpdateSettings();
+  };
+
+  const onhighlite_quotes_colorChange = (value: string) => {
+    set_highlite_quotes_color(value);
+    saveSettings({ ...getSettings(), highlite_quotes_color: value });
+    UpdateSettings();
+  };
+
+  const onrss_linkChange = (value: string) => {
+    set_rss_link(value);
+    saveSettings({ ...getSettings(), rss_link: value });
+    UpdateSettings();
+  };
+
+  const oncustom_rss_linkChange = (value: string) => {
+    set_custom_rss_link(value);
+    saveSettings({ ...getSettings(), custom_rss_link: value });
+    UpdateSettings();
+  };
+  
+  return (
+    <>
+      <Field label="News Count" description="Number of news items to display" bottomSeparator="standard">
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={newsCount}
+          onChange={onNewsCountChange}
+          style={{ width: '60px', padding: '4px 8px' }}
+        />
+      </Field>
+      <Field label="Alternate every N blocks" description="Interval between RSS news and Steam news" bottomSeparator="standard">
+        <input
+          type="number"
+          min={0}
+          max={20}
+          value={alternateEveryNblocks}
+          onChange={onAlternateEveryNblocksChange}
+          style={{ width: '60px', padding: '4px 8px' }}
+        />
+      </Field>
+      <Field label="News blocks range" description="Number of consecutive RSS news blocks to insert" bottomSeparator="standard">
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={newsBlocksRange}
+          onChange={onNewsBlocksRangeChange}
+          style={{ width: '60px', padding: '4px 8px' }}
+        />
+      </Field>
+      <Field label="Highlite english letters" description="Whether to highlight English letters within headlines (useful if the news is not in English)" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={highlite_english_letters}
+          onChange={(e) => onhighlite_english_lettersChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Highlite english letters color" description="" bottomSeparator="standard">
+        <input
+          type="text"
+          value={highlite_english_letters_color}
+          onChange={(e) => onhighlite_english_letters_colorChange(e.target.value)}
+          style={{ width: '60px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Highlite numbers" description="Whether to highlight numbers within headlines" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={highlite_numbers}
+          onChange={(e) => onhighlite_numbersChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Highlite numbers color" description="" bottomSeparator="standard">
+        <input
+          type="text"
+          value={highlite_numbers_color}
+          onChange={(e) => onhighlite_numbers_colorChange(e.target.value)}
+          style={{ width: '60px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Highlite quotes" description="Whether to highlight text enclosed in quotation marks within headlines" bottomSeparator="standard">
+        <input
+          type="checkbox"
+          checked={highlite_quotes}
+          onChange={(e) => onhighlite_quotesChange(e.target.checked)}
+          style={{ width: '20px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Highlite quotes color" description="" bottomSeparator="standard">
+        <input
+          type="text"
+          value={highlite_quotes_color}
+          onChange={(e) => onhighlite_quotes_colorChange(e.target.value)}
+          style={{ width: '60px', height: '20px' }}
+        />
+      </Field>
+      <Field label="RSS" description="Selecting a news source. Can be entered manually by selecting the 'other' option" bottomSeparator="standard">
+        <select
+            value={rss_link}
+            onChange={(e) => onrss_linkChange(e.target.value)}
+            style={{ width: '270px', height: '30px' }}
+        >
+            <option value="http://feeds.feedburner.com/ign/games-all">English (ign) - http://feeds.feedburner.com/ign/games-all</option>
+            <option value="https://www.playground.ru/rss/news.xml">Русский (playground) - https://www.playground.ru/rss/news.xml</option>
+            <option value="https://rss.stopgame.ru/rss_news.xml">Русский (stopgame) - https://rss.stopgame.ru/rss_news.xml</option>
+            <option value="https://www.gamestar.de/news/rss/news.rss">Deutsch (gamestar) - https://www.gamestar.de/news/rss/news.rss</option>
+            <option value="https://de.ign.com/feed.xml">Deutsch (ign) - https://de.ign.com/feed.xml</option>
+            <option value="https://www.gameblog.fr/rssmap/rss_all.xml">Français (gameblog) - https://www.gameblog.fr/rssmap/rss_all.xml</option>
+            <option value="https://fr.ign.com">Français (ign) - https://fr.ign.com</option>
+            <option value="https://it.ign.com/news.xml">Italian (ign) - https://it.ign.com/news.xml</option>
+            <option value="https://br.ign.com/news.xml">Português (ign) - https://br.ign.com</option>
+            <option value="https://jp.ign.com/news.xml">日本語 (ign) - https://jp.ign.com</option>
+            <option value="https://kr.ign.com/news.xml">한국어 (ign) - https://kr.ign.com</option>
+            <option value="https://nl.ign.com/news.xml">Nederlands (ign) - https://nl.ign.com</option>
+            <option value="other">other</option>
+        </select>
+      </Field>
+    {
+        settings.rss_link == "other" &&
+        <Field label="Custom RSS link" description="You can insert your own link into your RSS. If something is not displayed correctly, please notify the plugin developer." bottomSeparator="standard">
+            <input
+                type="text"
+                value={custom_rss_link}
+                onChange={(e) => oncustom_rss_linkChange(e.target.value)}
+                style={{ width: '230px', height: '20px' }}
+            />
+        </Field>
+    }
+    </>
+  );
 };
 
 export default definePlugin(() => {
+    settings = getSettings();
 	Millennium.AddWindowCreateHook(OnPopupCreation);
 
 	return {

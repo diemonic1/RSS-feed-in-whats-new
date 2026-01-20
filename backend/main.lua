@@ -1,60 +1,55 @@
 local logger = require("logger")
 local millennium = require("millennium")
-local utils = require("utils")
 local http = require("http")
 
 -- ====== STATE ======
 
-local settings = ""
-local lastDownloadingTime = 0
-local cachedResponse = nil
+local cache = {} -- [url] = { body = string, time = number }
 local CACHE_TIMEOUT = 20 -- seconds
-
--- ====== read_file ======
-
-local function read_file(path)
-    local content, err = utils.read_file(path)
-    return content
-end
 
 -- ====== BACKEND API ======
 
-function get_settings()
-    return tostring(settings)
-end
+function get_url_data(url, canUseCashe)
+    if not string.find(url, "http", 1, true) then
+        return nil
+    end
 
-function get_installPath()
-    return tostring(string.gsub(utils.get_backend_path(), "\\backend", ""))
-end
-
-function get_url_data(url)
     logger:info("[RSS-feed-in-whats-new] try to get " .. url)
 
     local now = os.time()
+    local cacheEntry = cache[url]
 
-    if lastDownloadingTime == 0 then
+    if canUseCashe == "false" or cacheEntry == nil then
         local response, err = http.request(url)
-        
+
         if response then
-            cachedResponse = response.body
-            lastDownloadingTime = now
-            return cachedResponse
+            cache[url] = {
+                body = response.body,
+                time = now
+            }
+            logger:info("[RSS-feed-in-whats-new] cache created/forced update")
+            return response.body
         end
+
+        return nil
     end
 
-    if (now - lastDownloadingTime) < CACHE_TIMEOUT then
+    if (now - cacheEntry.time) < CACHE_TIMEOUT then
         logger:info("[RSS-feed-in-whats-new] using cached data")
-        return cachedResponse
+        return cacheEntry.body
     end
 
     local response, err = http.request(url)
     if response then
-        cachedResponse = response.body
-        lastDownloadingTime = now
+        cache[url] = {
+            body = response.body,
+            time = now
+        }
         logger:info("[RSS-feed-in-whats-new] cache updated")
-
-        return cachedResponse
+        return response.body
     end
+
+    return nil
 end
 
 function print_log(text)
@@ -73,21 +68,6 @@ local function on_load()
     logger:info("Comparing millennium version: " .. millennium.cmp_version(millennium.version(), "2.29.3"))
     logger:info("RSS in whats new plugin loaded with Millennium version " .. millennium.version())
 
-    logger:info("Plugin base dir: " .. millennium.get_install_path())
-
-    local install_path = get_installPath()
-    logger:info("install path: " .. install_path)
-
-    local settings_path = install_path .. "/settings.json"
-    logger:info("settings path: " .. settings_path)
-
-    local content = read_file(settings_path)
-    if content then
-        settings = content
-        logger:info("settings loaded: " .. settings)
-    else
-        logger:error("failed to load settings.json")
-    end
     millennium.ready()
 end
 
