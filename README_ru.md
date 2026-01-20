@@ -8,26 +8,7 @@
 
 <img width="1643" height="525" alt="image" src="https://github.com/user-attachments/assets/6d9a6d18-b055-4f70-b578-afd3ef7797d6" />
 
-> [!TIP]
-> Настройки плагина лежат внутри папки установки Steam, например C:\Program Files (x86)\Steam\plugins\RSS-feed-in-whats-new
->
-> Это файл settings.json
-
-В файле настроек нужно указать адрес, откуда будут браться новости
-
-На данный момент точно работают:
-
-На английском языке:
-```
-http://feeds.feedburner.com/ign/games-all
-```
-На русском языке:
-```
-https://rss.stopgame.ru/rss_news.xml
-https://www.playground.ru/rss/news.xml
-```
-
-Другие настройки:
+Настройки:
 
 newsCount - количество новостей, которое будет выводится
 
