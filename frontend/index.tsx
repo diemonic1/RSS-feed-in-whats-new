@@ -114,7 +114,7 @@ function xmlToObject(xmlStr) {
   return parseNode(xmlDoc.documentElement);
 }
 
-async function SpawnUpdateNewsButton(panel: HTMLElement) {
+function SpawnUpdateNewsButton(panel: HTMLElement) {
   if (panel.querySelector("#RSSNewsUpdateButton")) return;
 
   const svgOriginal = panel.querySelector<SVGElement>("svg");
@@ -170,15 +170,15 @@ async function SpawnRSS(popup: any) {
 
         if (settings.rss_link == "other")
         {
-            result = await get_url_data({ url: settings.custom_rss_link });
+          result = await get_url_data({ url: settings.custom_rss_link });
         }
         else {
-            result = await get_url_data({ url: settings.rss_link });
+          result = await get_url_data({ url: settings.rss_link });
         }
 
         if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
         {
-            return;
+          return;
         }
 
         WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
