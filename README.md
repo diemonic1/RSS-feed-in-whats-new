@@ -12,6 +12,8 @@ A plugin for Steam to adding RSS news to "whats new" block
 
 Settings:
 
+rss_link - you can independently specify any news source of your choice
+
 newsCount - the number of news items to display
 
 alternateEveryNblocks - the interval between RSS news and Steam news
@@ -27,37 +29,43 @@ highlite_quotes - whether to highlight text enclosed in quotation marks within h
 You can set a different color for each character highlight. The default color is white.
 
 # Example settings:
+
 ```
 "newsCount": "4",
 "alternateEveryNblocks": "1",
 "newsBlocksRange": "2"
 ```
-|📜RSS news|📜RSS news|🔷Steam news|📜RSS news|📜RSS news|🔷Steam news|
-|-|-|-|-|-|-|
+
+| 📜RSS news | 📜RSS news | 🔷Steam news | 📜RSS news | 📜RSS news | 🔷Steam news |
+| ---------- | ---------- | ------------ | ---------- | ---------- | ------------ |
 
 ```
 "newsCount": "4",
 "alternateEveryNblocks": "0",
 "newsBlocksRange": "1"
 ```
-|📜RSS news|📜RSS news|📜RSS news|📜RSS news|🔷Steam news|🔷Steam news| 
-|-|-|-|-|-|-|
+
+| 📜RSS news | 📜RSS news | 📜RSS news | 📜RSS news | 🔷Steam news | 🔷Steam news |
+| ---------- | ---------- | ---------- | ---------- | ------------ | ------------ |
 
 ```
 "newsCount": "4",
 "alternateEveryNblocks": "1",
 "newsBlocksRange": "1"
 ```
-|📜RSS News|🔷Steam News|📜RSS News|🔷Steam News|📜RSS News|🔷Steam News|📜RSS News|🔷Steam News|
-|-|-|-|-|-|-|-|-|
+
+| 📜RSS News | 🔷Steam News | 📜RSS News | 🔷Steam News | 📜RSS News | 🔷Steam News | 📜RSS News | 🔷Steam News |
+| ---------- | ------------ | ---------- | ------------ | ---------- | ------------ | ---------- | ------------ |
 
 ```
 "newsCount": "3",
 "alternateEveryNblocks": "2",
 "newsBlocksRange": "1"
 ```
-|📜RSS News|🔷Steam News|🔷Steam News|📜RSS News|🔷Steam News|🔷Steam News|📜RSS News|🔷Steam News|
-|-|-|-|-|-|-|-|-|
+
+| 📜RSS News | 🔷Steam News | 🔷Steam News | 📜RSS News | 🔷Steam News | 🔷Steam News | 📜RSS News | 🔷Steam News |
+| ---------- | ------------ | ------------ | ---------- | ------------ | ------------ | ---------- | ------------ |
 
 ## Prerequisites
+
 - [Millennium](https://steambrew.app/)

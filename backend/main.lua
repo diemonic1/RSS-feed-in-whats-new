@@ -5,7 +5,7 @@ local http = require("http")
 -- ====== STATE ======
 
 local cache = {} -- [url] = { body = string, time = number }
-local CACHE_TIMEOUT = 20 -- seconds
+local CACHE_TIMEOUT = 5 -- seconds
 
 -- ====== BACKEND API ======
 
