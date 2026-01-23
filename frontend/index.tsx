@@ -166,26 +166,22 @@ async function SpawnRSS(popup: any) {
     {
         SyncLog("start spawn rss");
 
+        WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
+
+        if (WideRightPanel == null || WideRightPanel == undefined) 
+          return;
+
+        if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
+          return;
+
         let result = "";
 
-        if (settings.rss_link == "other")
-        {
+        if (settings.rss_link == "other") {
           result = await get_url_data({ url: settings.custom_rss_link });
         }
         else {
           result = await get_url_data({ url: settings.rss_link });
         }
-
-        if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
-        {
-          return;
-        }
-
-        WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
-
-        SpawnUpdateNewsButton(WideRightPanel);
-
-        if (WideRightPanel == null || WideRightPanel == undefined) return;
 
         SyncLog("Answer on rss was get");
 
@@ -210,7 +206,15 @@ async function SpawnRSS(popup: any) {
         objectJson = objectJson.channel.item.slice(0, newsCount + 1);
 
         const container = popup.m_popup.document.getElementById("popup_target");
+
+        if (container == null || container == undefined) 
+          return;
+
         const list = container.querySelectorAll('[role="list"]')[0];
+
+        if (list == null || list == undefined) 
+          return;
+
         const elementToCopy = list.children[0];
 
         let newsBlocksList = [];
@@ -303,6 +307,8 @@ async function SpawnRSS(popup: any) {
 
             index += repeatEvery;
         }
+
+        SpawnUpdateNewsButton(WideRightPanel);
     }
 }
 
