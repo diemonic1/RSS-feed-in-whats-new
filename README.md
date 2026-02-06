@@ -70,6 +70,9 @@ You can set a different color for each character highlight. The default color is
 
 - [Millennium](https://steambrew.app/)
 
+## Contact the developer on Discord
+https://discord.com/channels/1102739071085846623/1469383582396055552
+
 ## Screenshots
 
 <img width="1642" height="286" alt="image" src="https://github.com/user-attachments/assets/641d4861-7322-4f78-a45e-2fea407c663a" />
