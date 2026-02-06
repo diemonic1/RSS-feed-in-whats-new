@@ -69,3 +69,9 @@ You can set a different color for each character highlight. The default color is
 ## Prerequisites
 
 - [Millennium](https://steambrew.app/)
+
+## Screenshots
+
+<img width="1642" height="286" alt="image" src="https://github.com/user-attachments/assets/641d4861-7322-4f78-a45e-2fea407c663a" />
+
+<img width="1642" height="281" alt="image" src="https://github.com/user-attachments/assets/460e7377-485d-4a73-99b5-3bca62c820ec" />
