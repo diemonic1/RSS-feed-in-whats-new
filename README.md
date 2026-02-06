@@ -8,7 +8,7 @@
 
 A plugin for Steam to adding RSS news to "whats new" block
 
-<img width="1643" height="525" alt="image" src="https://github.com/user-attachments/assets/6d9a6d18-b055-4f70-b578-afd3ef7797d6" />
+<img alt="image" src="https://github.com/user-attachments/assets/6d9a6d18-b055-4f70-b578-afd3ef7797d6" />
 
 Settings:
 
@@ -75,6 +75,6 @@ https://discord.com/channels/1102739071085846623/1469383582396055552
 
 ## Screenshots
 
-<img width="1642" height="286" alt="image" src="https://github.com/user-attachments/assets/641d4861-7322-4f78-a45e-2fea407c663a" />
+<img alt="image" src="https://github.com/user-attachments/assets/641d4861-7322-4f78-a45e-2fea407c663a" />
 
-<img width="1642" height="281" alt="image" src="https://github.com/user-attachments/assets/460e7377-485d-4a73-99b5-3bca62c820ec" />
+<img alt="image" src="https://github.com/user-attachments/assets/460e7377-485d-4a73-99b5-3bca62c820ec" />
