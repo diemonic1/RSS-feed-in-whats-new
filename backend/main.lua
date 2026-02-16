@@ -14,8 +14,6 @@ function get_url_data(url, canUseCashe)
         return nil
     end
 
-    logger:info("[RSS-feed-in-whats-new] try to get " .. url)
-
     local now = os.time()
     local cacheEntry = cache[url]
 
@@ -27,7 +25,6 @@ function get_url_data(url, canUseCashe)
                 body = response.body,
                 time = now
             }
-            logger:info("[RSS-feed-in-whats-new] cache created/forced update")
             return response.body
         end
 
@@ -35,7 +32,6 @@ function get_url_data(url, canUseCashe)
     end
 
     if (now - cacheEntry.time) < CACHE_TIMEOUT then
-        logger:info("[RSS-feed-in-whats-new] using cached data")
         return cacheEntry.body
     end
 
@@ -45,7 +41,6 @@ function get_url_data(url, canUseCashe)
             body = response.body,
             time = now
         }
-        logger:info("[RSS-feed-in-whats-new] cache updated")
         return response.body
     end
 

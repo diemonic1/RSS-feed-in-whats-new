@@ -156,16 +156,12 @@ function SpawnUpdateNewsButton(panel: HTMLElement) {
 }
 
 async function SpawnRSS(popup: any) {
-    SyncLog("try to spawn rss");
-
     let WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
 
     if (WideRightPanel == null || WideRightPanel == undefined) return;
 
     if (popup.m_popup.document.getElementById("RSSNewBlock") == undefined) 
     {
-        SyncLog("start spawn rss");
-
         WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
 
         if (WideRightPanel == null || WideRightPanel == undefined) 
@@ -183,8 +179,6 @@ async function SpawnRSS(popup: any) {
           result = await get_url_data({ url: settings.rss_link });
         }
 
-        SyncLog("Answer on rss was get");
-
         let objectJson = {};
 
         try{
@@ -195,11 +189,6 @@ async function SpawnRSS(popup: any) {
             await print_error({ text: "EROOR: " + error });
             return;
         }
-
-        SyncLog("objectJson corrected convert");
-
-        console.log("objectJson corrected convert")
-        console.log(objectJson)
 
         const newsCount = Number(settings.newsCount);
 
@@ -262,7 +251,9 @@ async function SpawnRSS(popup: any) {
             newsBlock.children[1].children[0].children[1].textContent = description;
 
             newsBlock.children[1].children[1].children[0].src = image;
-            newsBlock.children[1].children[1].children[0].style.cssText = "height: 135px; object-fit: cover;";
+
+            newsBlock.children[1].children[1].children[0].style.cssText 
+              = "height: " + settings.images_height.toString() + "px; object-fit: cover;";
 
             newsBlock.children[1].children[1].removeChild(newsBlock.children[1].children[1].children[1]);
 
@@ -313,8 +304,6 @@ async function SpawnRSS(popup: any) {
 }
 
 async function OnPopupCreation(popup: any) {
-    SyncLog("OnPopupCreation");
-
     if (popup.m_strName === "SP Desktop_uid0") {
         popupGlobal = popup;
         const WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
@@ -365,6 +354,7 @@ const SettingsContent = () => {
   const [highlite_quotes_color, set_highlite_quotes_color] = useState('#ffffff');
   const [rss_link, set_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
   const [custom_rss_link, set_custom_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
+  const [images_height, set_images_height] = useState('135');
 
   useEffect(() => {
     const settings = getSettings();
@@ -379,6 +369,7 @@ const SettingsContent = () => {
     set_highlite_quotes_color(settings.highlite_quotes_color);
     set_rss_link(settings.rss_link);
     set_custom_rss_link(settings.custom_rss_link);
+    set_images_height(settings.images_height);
   }, []);
 
   const onNewsCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -459,6 +450,16 @@ const SettingsContent = () => {
     UpdateSettingsAndNews();
   };
   
+  const onimages_heightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    set_images_height(value);
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= 300) {
+      saveSettings({ ...getSettings(), images_height: numValue });
+      UpdateSettingsAndNews();
+    }
+  };
+
   return (
     <>
       <Field label="News Count" description="Number of news items to display" bottomSeparator="standard">
@@ -537,6 +538,16 @@ const SettingsContent = () => {
           value={highlite_quotes_color}
           onChange={(e) => onhighlite_quotes_colorChange(e.target.value)}
           style={{ width: '60px', height: '20px' }}
+        />
+      </Field>
+      <Field label="Images height" description="If your images are incorrect, set a different value here (you probably need to set it to 175) (default 135)" bottomSeparator="standard">
+        <input
+          type="number"
+          min={1}
+          max={300}
+          value={images_height}
+          onChange={onimages_heightChange}
+          style={{ width: '60px', padding: '4px 8px' }}
         />
       </Field>
       <Field label="RSS" description="Selecting a news source. Can be entered manually by selecting the 'other' option" bottomSeparator="standard">
