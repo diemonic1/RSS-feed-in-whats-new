@@ -1,4 +1,5 @@
-import { Millennium, IconsModule, definePlugin, callable, Field, DialogButton } from '@steambrew/client';
+import { Millennium, IconsModule, definePlugin, callable, Field, 
+  SliderField, TextField, Toggle, PanelSection, DropdownItem} from '@steambrew/client';
 import { useState, useEffect } from 'react';
 import { getSettings, saveSettings } from './services/settings';
 
@@ -15,6 +16,25 @@ async function SyncLog(textS: string) {
 
 let settings = null;
 let popupGlobal = null;
+
+const cssStyle = `
+  .Rss-in-whats-new-SliderField {
+    width: 100px;
+  }
+`;
+
+const POPUP_STYLE_ID = 'rss-feed-whats-new-styles';
+
+function InjectPopupStyles(targetDocument: Document) {
+    if (targetDocument.getElementById(POPUP_STYLE_ID)) {
+        return;
+    }
+
+    const styleElement = targetDocument.createElement('style');
+    styleElement.id = POPUP_STYLE_ID;
+    styleElement.textContent = cssStyle;
+    targetDocument.head.appendChild(styleElement);
+}
 
 function ChangeTitle(result: string) {
     if (result.length > 125) {
@@ -65,30 +85,58 @@ function ChangeTitle(result: string) {
     return result;
 }
 
-function isCharacterALetter(char) {
-	return (/[a-zA-Z]/).test(char)
-}
-
-function isCharacterNumber(char) {
-	return (/[0-9]/).test(char)
-}
-
-function xmlToObject(xmlStr) {
+function xmlToObject(xmlStr: string) {
   const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlStr, "application/xml");
 
-  function parseNode(node) {
-    const obj = {};
+  const normalizeXmlString = (raw: string) => {
+    let value = (raw ?? "").trim().replace(/^\uFEFF/, "");
+
+    const hasWrappingQuotes =
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"));
+
+    if (hasWrappingQuotes) {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        value = value.slice(1, -1);
+      }
+    }
+
+    value = value
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, "\n")
+      .replace(/\\r/g, "\r")
+      .trim();
+
+    const firstTagIndex = value.indexOf("<");
+    if (firstTagIndex > 0) {
+      value = value.slice(firstTagIndex);
+    }
+
+    return value;
+  };
+
+  const normalizedXml = normalizeXmlString(xmlStr);
+  const xmlDoc = parser.parseFromString(normalizedXml, "application/xml");
+
+  const parseError = xmlDoc.querySelector("parsererror");
+  if (parseError) {
+    throw new Error(parseError.textContent || "Invalid XML");
+  }
+
+  function parseNode(node: any): any {
+    const obj: Record<string, any> = {};
 
     // атрибуты
     if (node.attributes && node.attributes.length > 0) {
       obj["@attributes"] = {};
-      Array.from(node.attributes).forEach(attr => {
+      Array.from(node.attributes as Attr[]).forEach((attr) => {
         obj["@attributes"][attr.nodeName] = attr.nodeValue;
       });
     }
 
-    node.childNodes.forEach(child => {
+    node.childNodes.forEach((child: any) => {
       if (child.nodeType === 1) { // элемент
         const childObj = parseNode(child);
         if (obj[child.nodeName]) {
@@ -98,7 +146,7 @@ function xmlToObject(xmlStr) {
           obj[child.nodeName] = childObj;
         }
       } else if (child.nodeType === 3 || child.nodeType === 4) { // текст или CDATA
-        const text = child.nodeValue.trim();
+        const text = (child.nodeValue ?? "").trim();
         if (text) obj["#text"] = text;
       }
     });
@@ -192,7 +240,7 @@ async function SpawnRSS(popup: any) {
 
         const newsCount = Number(settings.newsCount);
 
-        objectJson = objectJson.channel.item.slice(0, newsCount + 1);
+        objectJson = objectJson.channel.item.slice(0, newsCount);
 
         const container = popup.m_popup.document.getElementById("popup_target");
 
@@ -306,6 +354,9 @@ async function SpawnRSS(popup: any) {
 async function OnPopupCreation(popup: any) {
     if (popup.m_strName === "SP Desktop_uid0") {
         popupGlobal = popup;
+
+        InjectPopupStyles(popup.m_popup.document);
+
         const WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
     
         if (WideRightPanel == null || WideRightPanel == undefined) return;
@@ -369,11 +420,11 @@ const SettingsContent = () => {
     set_highlite_quotes_color(settings.highlite_quotes_color);
     set_rss_link(settings.rss_link);
     set_custom_rss_link(settings.custom_rss_link);
-    set_images_height(settings.images_height);
+    set_images_height(String(settings.images_height));
   }, []);
 
-  const onNewsCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const onNewsCountChange = (newValue: Number) => {
+    const value = newValue.toString();
     setNewsCount(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
@@ -382,8 +433,8 @@ const SettingsContent = () => {
     }
   };
 
-  const onAlternateEveryNblocksChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const onAlternateEveryNblocksChange = (newValue: Number) => {
+    const value = newValue.toString();
     setAlternateEveryNblocks(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 0 && numValue <= 10) {
@@ -392,8 +443,8 @@ const SettingsContent = () => {
     }
   };
 
-  const onNewsBlocksRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const onNewsBlocksRangeChange = (newValue: Number) => {
+    const value = newValue.toString();
     setNewsBlocksRange(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
@@ -460,134 +511,159 @@ const SettingsContent = () => {
     }
   };
 
+  const rssOptions = [
+    { data: 'http://feeds.feedburner.com/ign/games-all', label: 'English (ign) - http://feeds.feedburner.com/ign/games-all' },
+    { data: 'https://www.playground.ru/rss/news.xml', label: 'Русский (playground) - https://www.playground.ru/rss/news.xml' },
+    { data: 'https://rss.stopgame.ru/rss_news.xml', label: 'Русский (stopgame) - https://rss.stopgame.ru/rss_news.xml' },
+    { data: 'https://www.gamestar.de/news/rss/news.rss', label: 'Deutsch (gamestar) - https://www.gamestar.de/news/rss/news.rss' },
+    { data: 'https://de.ign.com/feed.xml', label: 'Deutsch (ign) - https://de.ign.com/feed.xml' },
+    { data: 'https://www.gameblog.fr/rssmap/rss_all.xml', label: 'Français (gameblog) - https://www.gameblog.fr/rssmap/rss_all.xml' },
+    { data: 'https://fr.ign.com', label: 'Français (ign) - https://fr.ign.com' },
+    { data: 'https://it.ign.com/news.xml', label: 'Italian (ign) - https://it.ign.com/news.xml' },
+    { data: 'https://br.ign.com/news.xml', label: 'Português (ign) - https://br.ign.com' },
+    { data: 'https://jp.ign.com/news.xml', label: '日本語 (ign) - https://jp.ign.com' },
+    { data: 'https://kr.ign.com/news.xml', label: '한국어 (ign) - https://kr.ign.com' },
+    { data: 'https://nl.ign.com/news.xml', label: 'Nederlands (ign) - https://nl.ign.com' },
+    { data: 'other', label: 'other' },
+  ];
+
+  const selectedRssOption =
+    rssOptions.find((option) => option.data === rss_link) ?? rssOptions[0];
+
   return (
     <>
-      <Field label="News Count" description="Number of news items to display" bottomSeparator="standard">
-        <input
-          type="number"
+      <Field label={`News Count: ${newsCount}`} description="Number of news items to display" bottomSeparator="standard">
+        <SliderField
+          value={Number(newsCount)}
           min={1}
           max={20}
-          value={newsCount}
           onChange={onNewsCountChange}
-          style={{ width: '60px', padding: '4px 8px' }}
+          className='Rss-in-whats-new-SliderField'
         />
       </Field>
-      <Field label="Alternate every N blocks" description="Interval between RSS news and Steam news" bottomSeparator="standard">
-        <input
-          type="number"
+      <Field label={`Alternate every N blocks: ${alternateEveryNblocks}`} description="Interval between RSS news and Steam news" bottomSeparator="standard">
+        <SliderField
+          value={Number(alternateEveryNblocks)}
           min={0}
           max={20}
-          value={alternateEveryNblocks}
           onChange={onAlternateEveryNblocksChange}
-          style={{ width: '60px', padding: '4px 8px' }}
+          className='Rss-in-whats-new-SliderField'
         />
       </Field>
-      <Field label="News blocks range" description="Number of consecutive RSS news blocks to insert" bottomSeparator="standard">
-        <input
-          type="number"
+      <Field label={`News blocks range: ${newsBlocksRange}`} description="Number of consecutive RSS news blocks to insert" bottomSeparator="standard">
+        <SliderField
+          value={Number(newsBlocksRange)}
           min={1}
           max={20}
-          value={newsBlocksRange}
           onChange={onNewsBlocksRangeChange}
-          style={{ width: '60px', padding: '4px 8px' }}
+          className='Rss-in-whats-new-SliderField'
         />
       </Field>
-      <Field label="Highlite english letters" description="Whether to highlight English letters within headlines (useful if the news is not in English)" bottomSeparator="standard">
-        <input
-          type="checkbox"
-          checked={highlite_english_letters}
-          onChange={(e) => onhighlite_english_lettersChange(e.target.checked)}
-          style={{ width: '20px', height: '20px' }}
-        />
-      </Field>
-      <Field label="Highlite english letters color" description="" bottomSeparator="standard">
-        <input
-          type="text"
+
+      <br></br>
+
+      <PanelSection 
+        title="Highlite english letters"
+      >
+        <Field label="Highlite english letters" description="Whether to highlight English letters within headlines (useful if the news is not in English)" bottomSeparator="standard">
+          <Toggle
+            value={highlite_english_letters}
+            onChange={onhighlite_english_lettersChange}
+          />
+        </Field>
+        <br></br>
+        <TextField
+          label="Highlite english letters color"
           value={highlite_english_letters_color}
           onChange={(e) => onhighlite_english_letters_colorChange(e.target.value)}
-          style={{ width: '60px', height: '20px' }}
         />
-      </Field>
-      <Field label="Highlite numbers" description="Whether to highlight numbers within headlines" bottomSeparator="standard">
-        <input
-          type="checkbox"
-          checked={highlite_numbers}
-          onChange={(e) => onhighlite_numbersChange(e.target.checked)}
-          style={{ width: '20px', height: '20px' }}
-        />
-      </Field>
-      <Field label="Highlite numbers color" description="" bottomSeparator="standard">
-        <input
-          type="text"
+      </PanelSection>
+
+      <PanelSection 
+        title="Highlite numbers"
+      > 
+        <Field label="Highlite numbers" description="Whether to highlight numbers within headlines" bottomSeparator="standard">
+          <Toggle
+            value={highlite_numbers}
+            onChange={onhighlite_numbersChange}
+          />
+        </Field>
+        <br></br>
+        <TextField
+          label="Highlite numbers color"
           value={highlite_numbers_color}
           onChange={(e) => onhighlite_numbers_colorChange(e.target.value)}
-          style={{ width: '60px', height: '20px' }}
         />
-      </Field>
-      <Field label="Highlite quotes" description="Whether to highlight text enclosed in quotation marks within headlines" bottomSeparator="standard">
-        <input
-          type="checkbox"
-          checked={highlite_quotes}
-          onChange={(e) => onhighlite_quotesChange(e.target.checked)}
-          style={{ width: '20px', height: '20px' }}
-        />
-      </Field>
-      <Field label="Highlite quotes color" description="" bottomSeparator="standard">
-        <input
-          type="text"
+      </PanelSection>
+      
+      <PanelSection 
+        title="Highlite quotes"
+      > 
+        <Field label="Highlite quotes" description="Whether to highlight text enclosed in quotation marks within headlines" bottomSeparator="standard">
+          <Toggle
+            value={highlite_quotes}
+            onChange={onhighlite_quotesChange}
+          />
+        </Field>
+        <br></br>
+        <TextField
+          label="Highlite quotes color"
           value={highlite_quotes_color}
           onChange={(e) => onhighlite_quotes_colorChange(e.target.value)}
-          style={{ width: '60px', height: '20px' }}
         />
-      </Field>
-      <Field label="Images height" description="If your images are incorrect, set a different value here (you probably need to set it to 175) (default 135)" bottomSeparator="standard">
-        <input
-          type="number"
-          min={1}
-          max={300}
+      </PanelSection>
+
+      <PanelSection 
+        title="Images height"
+      >
+        <TextField
+          label="Images height"
+          description="If your images are incorrect, set a different value here (you probably need to set it to 175) (default 135)"
+          mustBeNumeric={true}
+          rangeMin={1}
+          rangeMax={300}
           value={images_height}
           onChange={onimages_heightChange}
-          style={{ width: '60px', padding: '4px 8px' }}
         />
-      </Field>
-      <Field label="RSS" description="Selecting a news source. Can be entered manually by selecting the 'other' option" bottomSeparator="standard">
-        <select
-            value={rss_link}
-            onChange={(e) => onrss_linkChange(e.target.value)}
-            style={{ width: '270px', height: '30px' }}
-        >
-            <option value="http://feeds.feedburner.com/ign/games-all">English (ign) - http://feeds.feedburner.com/ign/games-all</option>
-            <option value="https://www.playground.ru/rss/news.xml">Русский (playground) - https://www.playground.ru/rss/news.xml</option>
-            <option value="https://rss.stopgame.ru/rss_news.xml">Русский (stopgame) - https://rss.stopgame.ru/rss_news.xml</option>
-            <option value="https://www.gamestar.de/news/rss/news.rss">Deutsch (gamestar) - https://www.gamestar.de/news/rss/news.rss</option>
-            <option value="https://de.ign.com/feed.xml">Deutsch (ign) - https://de.ign.com/feed.xml</option>
-            <option value="https://www.gameblog.fr/rssmap/rss_all.xml">Français (gameblog) - https://www.gameblog.fr/rssmap/rss_all.xml</option>
-            <option value="https://fr.ign.com">Français (ign) - https://fr.ign.com</option>
-            <option value="https://it.ign.com/news.xml">Italian (ign) - https://it.ign.com/news.xml</option>
-            <option value="https://br.ign.com/news.xml">Português (ign) - https://br.ign.com</option>
-            <option value="https://jp.ign.com/news.xml">日本語 (ign) - https://jp.ign.com</option>
-            <option value="https://kr.ign.com/news.xml">한국어 (ign) - https://kr.ign.com</option>
-            <option value="https://nl.ign.com/news.xml">Nederlands (ign) - https://nl.ign.com</option>
-            <option value="other">other</option>
-        </select>
-      </Field>
-    {
-        settings.rss_link == "other" &&
-        <Field label="Custom RSS link" description="You can insert your own link into your RSS. If something is not displayed correctly, please notify the plugin developer." bottomSeparator="standard">
-            <input
-                type="text"
-                value={custom_rss_link}
-                onChange={(e) => oncustom_rss_linkChange(e.target.value)}
-                style={{ width: '230px', height: '20px' }}
-            />
-        </Field>
-    }
+      </PanelSection>
+
+      <PanelSection 
+        title="RSS feed link"
+      >
+        <p>Selecting a news source. Can be entered manually by selecting the 'other' option</p>
+        <DropdownItem
+          label={selectedRssOption.label}
+          bottomSeparator="standard"
+          rgOptions={rssOptions}
+          selectedOption={selectedRssOption}
+          menuLabel={selectedRssOption.label}
+          strDefaultLabel={selectedRssOption.label}
+          onChange={(selected) => onrss_linkChange(String(selected.data))}
+        />
+      </PanelSection>
+
+      {
+        rss_link == "other" &&
+        <>
+          <p>
+            You can insert your own link into your RSS. If something is not displayed correctly, please notify the plugin developer.
+          </p>
+          <TextField
+            label="Custom RSS link"
+            value={custom_rss_link}
+            onChange={(e) => oncustom_rss_linkChange(e.target.value)}
+          />
+        </>
+      }
     </>
   );
 };
 
 export default definePlugin(() => {
-    settings = getSettings();
+  SyncLog("Plugin loaded");
+  
+  settings = getSettings();
+
 	Millennium.AddWindowCreateHook(OnPopupCreation);
 
 	return {
