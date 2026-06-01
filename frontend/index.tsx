@@ -2,6 +2,7 @@ import { Millennium, IconsModule, definePlugin, callable, Field,
   SliderField, TextField, Toggle, PanelSection, DropdownItem} from '@steambrew/client';
 import { useState, useEffect } from 'react';
 import { getSettings, saveSettings } from './services/settings';
+import { Localize, GetLanguageOptions } from './services/localization';
 
 const WaitForElement = async (sel: string, parent = document) =>
 	[...(await Millennium.findElement(parent, sel))][0];
@@ -193,7 +194,7 @@ function SpawnUpdateNewsButton(panel: HTMLElement) {
 
   clone.style.marginLeft = "11px";
 
-  clone.title = "Update RSS news";
+  clone.title = Localize(settings.language, 'UpdateRSSNews');
 
   parent.insertAdjacentElement("afterend", clone);
 
@@ -294,7 +295,7 @@ async function SpawnRSS(popup: any) {
             const newsBlock = elementToCopy.cloneNode(true);
             newsBlock.children[0].textContent = formattedDate;
             
-            newsBlock.children[1].children[0].children[0].textContent = "RSS News";
+            newsBlock.children[1].children[0].children[0].textContent = Localize(settings.language, 'RSSNewsTitle');
 
             newsBlock.children[1].children[0].children[1].textContent = description;
 
@@ -312,8 +313,16 @@ async function SpawnRSS(popup: any) {
             newsBlock.removeChild(newsBlock.children[3]);
             newsBlock.children[2].innerHTML = title;
 
+            newsBlock.children[2].addEventListener("click", async () => {
+    			    SteamClient.System.OpenInSystemBrowser(link);
+            });
+
+            newsBlock.children[1].children[0].children[1].addEventListener("click", async () => {
+    			    SteamClient.System.OpenInSystemBrowser(link);
+            });
+
             newsBlock.children[1].children[1].addEventListener("click", async () => {
-    			SteamClient.System.OpenInSystemBrowser(link);
+    			    SteamClient.System.OpenInSystemBrowser(link);
             });
 
             newsBlock.id = "RSSNewBlock";
@@ -394,6 +403,7 @@ function UpdateSettingsAndNews() {
 }
 
 const SettingsContent = () => {
+  const [language, setLanguage] = useState('English');
   const [newsCount, setNewsCount] = useState('10');
   const [alternateEveryNblocks, setAlternateEveryNblocks] = useState('1');
   const [newsBlocksRange, setNewsBlocksRange] = useState('2');
@@ -409,6 +419,7 @@ const SettingsContent = () => {
 
   useEffect(() => {
     const settings = getSettings();
+    setLanguage(String(settings.language));
     setNewsCount(String(settings.newsCount));
     setAlternateEveryNblocks(String(settings.alternateEveryNblocks));
     setNewsBlocksRange(String(settings.newsBlocksRange));
@@ -423,8 +434,14 @@ const SettingsContent = () => {
     set_images_height(String(settings.images_height));
   }, []);
 
-  const onNewsCountChange = (newValue: Number) => {
-    const value = newValue.toString();
+  const onlanguageChange = (value: string) => {
+    setLanguage(value);
+    saveSettings({ ...getSettings(), language: value });
+    UpdateSettingsAndNews();
+  };
+
+  const onNewsCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setNewsCount(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
@@ -433,8 +450,8 @@ const SettingsContent = () => {
     }
   };
 
-  const onAlternateEveryNblocksChange = (newValue: Number) => {
-    const value = newValue.toString();
+  const onAlternateEveryNblocksChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setAlternateEveryNblocks(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 0 && numValue <= 10) {
@@ -443,8 +460,8 @@ const SettingsContent = () => {
     }
   };
 
-  const onNewsBlocksRangeChange = (newValue: Number) => {
-    const value = newValue.toString();
+  const onNewsBlocksRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
     setNewsBlocksRange(value);
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 20) {
@@ -518,54 +535,82 @@ const SettingsContent = () => {
     { data: 'https://www.gamestar.de/news/rss/news.rss', label: 'Deutsch (gamestar) - https://www.gamestar.de/news/rss/news.rss' },
     { data: 'https://de.ign.com/feed.xml', label: 'Deutsch (ign) - https://de.ign.com/feed.xml' },
     { data: 'https://www.gameblog.fr/rssmap/rss_all.xml', label: 'Français (gameblog) - https://www.gameblog.fr/rssmap/rss_all.xml' },
-    { data: 'https://fr.ign.com', label: 'Français (ign) - https://fr.ign.com' },
+    { data: 'https://fr.ign.com/news.xml', label: 'Français (ign) - https://fr.ign.com/news.xml' },
     { data: 'https://it.ign.com/news.xml', label: 'Italian (ign) - https://it.ign.com/news.xml' },
-    { data: 'https://br.ign.com/news.xml', label: 'Português (ign) - https://br.ign.com' },
-    { data: 'https://jp.ign.com/news.xml', label: '日本語 (ign) - https://jp.ign.com' },
-    { data: 'https://kr.ign.com/news.xml', label: '한국어 (ign) - https://kr.ign.com' },
-    { data: 'https://nl.ign.com/news.xml', label: 'Nederlands (ign) - https://nl.ign.com' },
-    { data: 'other', label: 'other' },
+    { data: 'https://br.ign.com/news.xml', label: 'Português (ign) - https://br.ign.com/news.xml' },
+    { data: 'https://jp.ign.com/news.xml', label: '日本語 (ign) - https://jp.ign.com/news.xml' },
+    { data: 'https://kr.ign.com/news.xml', label: '한국어 (ign) - https://kr.ign.com/news.xml' },
+    { data: 'https://nl.ign.com/news.xml', label: 'Nederlands (ign) - https://nl.ign.com/news.xml' },
+    { data: 'other', label: Localize(language, 'Other') },
   ];
 
   const selectedRssOption =
     rssOptions.find((option) => option.data === rss_link) ?? rssOptions[0];
 
+  const languageOptions = GetLanguageOptions();
+
+  const selectedlanguageOption =
+    languageOptions.find((option) => option.data === language) ?? languageOptions[0];
+
   return (
     <>
-      <Field label={`News Count: ${newsCount}`} description="Number of news items to display" bottomSeparator="standard">
-        <SliderField
-          value={Number(newsCount)}
-          min={1}
-          max={20}
+      <PanelSection 
+        title={Localize(language, 'LanguageOfPlugin')}
+      >
+        <DropdownItem
+          label={selectedlanguageOption.label}
+          bottomSeparator="standard"
+          rgOptions={languageOptions}
+          selectedOption={selectedlanguageOption}
+          menuLabel={selectedlanguageOption.label}
+          strDefaultLabel={selectedlanguageOption.label}
+          onChange={(selected) => onlanguageChange(String(selected.data))}
+        />
+      </PanelSection>
+
+      <PanelSection 
+        title={`${Localize(language, 'NewsCount')}: ${newsCount}`}
+      >
+        <TextField
+          description={Localize(language, 'NewsCountDescription')}
+          mustBeNumeric={true}
+          rangeMin={1}
+          rangeMax={20}
+          value={newsCount}
           onChange={onNewsCountChange}
-          className='Rss-in-whats-new-SliderField'
         />
-      </Field>
-      <Field label={`Alternate every N blocks: ${alternateEveryNblocks}`} description="Interval between RSS news and Steam news" bottomSeparator="standard">
-        <SliderField
-          value={Number(alternateEveryNblocks)}
-          min={0}
-          max={20}
+      </PanelSection>
+      <PanelSection 
+        title={`${Localize(language, 'AlternateEveryNBlocks')}: ${alternateEveryNblocks}`}
+      >
+        <TextField
+          description={Localize(language, 'AlternateEveryNBlocksDescription')}
+          mustBeNumeric={true}
+          rangeMin={0}
+          rangeMax={10}
+          value={alternateEveryNblocks}
           onChange={onAlternateEveryNblocksChange}
-          className='Rss-in-whats-new-SliderField'
         />
-      </Field>
-      <Field label={`News blocks range: ${newsBlocksRange}`} description="Number of consecutive RSS news blocks to insert" bottomSeparator="standard">
-        <SliderField
-          value={Number(newsBlocksRange)}
-          min={1}
-          max={20}
+      </PanelSection>
+      <PanelSection 
+        title={`${Localize(language, 'NewsBlocksRange')}: ${newsBlocksRange}`}
+      >
+        <TextField
+          description={Localize(language, 'NewsBlocksRangeDescription')}
+          mustBeNumeric={true}
+          rangeMin={1}
+          rangeMax={20}
+          value={newsBlocksRange}
           onChange={onNewsBlocksRangeChange}
-          className='Rss-in-whats-new-SliderField'
         />
-      </Field>
+      </PanelSection>
 
       <br></br>
 
       <PanelSection 
-        title="Highlite english letters"
+        title={Localize(language, 'HighliteEnglishLetters')}
       >
-        <Field label="Highlite english letters" description="Whether to highlight English letters within headlines (useful if the news is not in English)" bottomSeparator="standard">
+        <Field label={Localize(language, 'HighliteEnglishLetters')} description={Localize(language, 'HighliteEnglishLettersDescription')} bottomSeparator="standard">
           <Toggle
             value={highlite_english_letters}
             onChange={onhighlite_english_lettersChange}
@@ -573,16 +618,16 @@ const SettingsContent = () => {
         </Field>
         <br></br>
         <TextField
-          label="Highlite english letters color"
+          label={Localize(language, 'HighliteEnglishLettersColor')}
           value={highlite_english_letters_color}
           onChange={(e) => onhighlite_english_letters_colorChange(e.target.value)}
         />
       </PanelSection>
 
       <PanelSection 
-        title="Highlite numbers"
+        title={Localize(language, 'HighliteNumbers')}
       > 
-        <Field label="Highlite numbers" description="Whether to highlight numbers within headlines" bottomSeparator="standard">
+        <Field label={Localize(language, 'HighliteNumbers')} description={Localize(language, 'HighliteNumbersDescription')} bottomSeparator="standard">
           <Toggle
             value={highlite_numbers}
             onChange={onhighlite_numbersChange}
@@ -590,16 +635,16 @@ const SettingsContent = () => {
         </Field>
         <br></br>
         <TextField
-          label="Highlite numbers color"
+          label={Localize(language, 'HighliteNumbersColor')}
           value={highlite_numbers_color}
           onChange={(e) => onhighlite_numbers_colorChange(e.target.value)}
         />
       </PanelSection>
       
       <PanelSection 
-        title="Highlite quotes"
+        title={Localize(language, 'HighliteQuotes')}
       > 
-        <Field label="Highlite quotes" description="Whether to highlight text enclosed in quotation marks within headlines" bottomSeparator="standard">
+        <Field label={Localize(language, 'HighliteQuotes')} description={Localize(language, 'HighliteQuotesDescription')} bottomSeparator="standard">
           <Toggle
             value={highlite_quotes}
             onChange={onhighlite_quotesChange}
@@ -607,18 +652,17 @@ const SettingsContent = () => {
         </Field>
         <br></br>
         <TextField
-          label="Highlite quotes color"
+          label={Localize(language, 'HighliteQuotesColor')}
           value={highlite_quotes_color}
           onChange={(e) => onhighlite_quotes_colorChange(e.target.value)}
         />
       </PanelSection>
 
       <PanelSection 
-        title="Images height"
+        title={Localize(language, 'ImagesHeight')}
       >
         <TextField
-          label="Images height"
-          description="If your images are incorrect, set a different value here (you probably need to set it to 175) (default 135)"
+          description={Localize(language, 'ImagesHeightDescription')}
           mustBeNumeric={true}
           rangeMin={1}
           rangeMax={300}
@@ -628,9 +672,9 @@ const SettingsContent = () => {
       </PanelSection>
 
       <PanelSection 
-        title="RSS feed link"
+        title={Localize(language, 'RSSFeedLink')}
       >
-        <p>Selecting a news source. Can be entered manually by selecting the 'other' option</p>
+        <p>{Localize(language, 'RSSFeedLinkDescription')}</p>
         <DropdownItem
           label={selectedRssOption.label}
           bottomSeparator="standard"
@@ -646,10 +690,10 @@ const SettingsContent = () => {
         rss_link == "other" &&
         <>
           <p>
-            You can insert your own link into your RSS. If something is not displayed correctly, please notify the plugin developer.
+            {Localize(language, 'CustomRSSLinkDescription')}
           </p>
           <TextField
-            label="Custom RSS link"
+            label={Localize(language, 'CustomRSSLink')}
             value={custom_rss_link}
             onChange={(e) => oncustom_rss_linkChange(e.target.value)}
           />

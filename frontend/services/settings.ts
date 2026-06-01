@@ -1,4 +1,5 @@
 export interface PluginSettings {
+  language: string;
   newsCount: number;
   alternateEveryNblocks: number;
   newsBlocksRange: number;
@@ -16,6 +17,7 @@ export interface PluginSettings {
 const STORAGE_KEY = 'RSS-feed-in-whats-new-settings';
 
 const DEFAULT_SETTINGS: PluginSettings = {
+  language: "English",
   newsCount: 10,
   alternateEveryNblocks: 1,
   newsBlocksRange: 2,
