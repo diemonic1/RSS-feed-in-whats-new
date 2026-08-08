@@ -1,15 +1,25 @@
 local logger = require("logger")
 local millennium = require("millennium")
 local http = require("http")
+local test_data = require("test_data")
 
 -- ====== STATE ======
 
 local cache = {} -- [url] = { body = string, time = number }
 local CACHE_TIMEOUT = 5 -- seconds
 
+-- Set to true and rebuild the plugin to serve a fixed set of long-title test
+-- news instead of the real RSS feed (see test_data.lua). Cannot be toggled
+-- from the built plugin - it requires editing this file and rebuilding.
+local TEST_LONG_TITLES = false
+
 -- ====== BACKEND API ======
 
 function get_url_data(url, canUseCashe)
+    if TEST_LONG_TITLES then
+        return test_data.generate()
+    end
+
     if not string.find(url, "http", 1, true) then
         return nil
     end

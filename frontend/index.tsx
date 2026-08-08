@@ -1,5 +1,5 @@
 import { Millennium, IconsModule, definePlugin, callable, Field, 
-  SliderField, TextField, Toggle, PanelSection, DropdownItem} from '@steambrew/client';
+  TextField, Toggle, PanelSection, DropdownItem} from '@steambrew/client';
 import { useState, useEffect } from 'react';
 import { getSettings, saveSettings } from './services/settings';
 import { Localize, GetLanguageOptions } from './services/localization';
@@ -11,12 +11,12 @@ const get_url_data = callable<[{ url: string }], string>('get_url_data');
 const print_log = callable<[{ text: string }], string>('print_log');
 const print_error = callable<[{ text: string }], string>('print_error');
 
-async function SyncLog(textS: string) {
-    await print_log({ text: textS });
-}
+const TITLE_MAX_LINES = 4;
 
 let settings = null;
 let popupGlobal = null;
+
+const POPUP_STYLE_ID = 'rss-feed-whats-new-styles';
 
 const cssStyle = `
   .Rss-in-whats-new-SliderField {
@@ -24,7 +24,9 @@ const cssStyle = `
   }
 `;
 
-const POPUP_STYLE_ID = 'rss-feed-whats-new-styles';
+async function SyncLog(textS: string) {
+    await print_log({ text: textS });
+}
 
 function InjectPopupStyles(targetDocument: Document) {
     if (targetDocument.getElementById(POPUP_STYLE_ID)) {
@@ -37,10 +39,29 @@ function InjectPopupStyles(targetDocument: Document) {
     targetDocument.head.appendChild(styleElement);
 }
 
-function ChangeTitle(result: string) {
-    if (result.length > 125) {
-        result = result.slice(0, 125) + '…';
+function DecodeHtmlEntities(text: string): string {
+    let current = text;
+
+    while (true) {
+        const el = document.createElement('textarea');
+        el.innerHTML = current;
+        const decoded = el.value;
+
+        if (decoded === current) return decoded;
+
+        current = decoded;
     }
+}
+
+function EscapeHtml(text: string): string {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function RenderTitleHtml(title: string) {
+    let result = EscapeHtml(DecodeHtmlEntities(title));
 
     // ===== english letters =====
     if (settings.highlite_english_letters) {
@@ -76,14 +97,29 @@ function ChangeTitle(result: string) {
         );
     }
 
-    // ===== HTML entities cleanup =====
-    result = result
-        .replace(/&amp;#039;/g, "'")
-        .replace(/&#039;/g, "'")
-        .replace(/&amp;amp;/g, "&")
-        .replace(/&amp;/g, "&");
-
     return result;
+}
+
+function CountLines(el: HTMLElement): number {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+
+    const tops = new Set(Array.from(range.getClientRects()).map(r => Math.round(r.top)));
+
+    return tops.size || 1;
+}
+
+function FitTextElement(el: HTMLElement, maxLines: number) {
+    let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
+
+    while (CountLines(el) > maxLines && fontSize > 1) {
+        fontSize -= 1;
+        el.style.fontSize = `${fontSize}px`;
+    }
+}
+
+function FitNewsBlock(newsBlock: any) {
+    FitTextElement(newsBlock.children[2], TITLE_MAX_LINES);
 }
 
 function xmlToObject(xmlStr: string) {
@@ -288,11 +324,12 @@ async function SpawnRSS(popup: any) {
                 description = description.slice(0, 125) + '…';
             }
 
-            title = ChangeTitle(title);
+            title = RenderTitleHtml(title);
 
             const link = element.link;
 
             const newsBlock = elementToCopy.cloneNode(true);
+
             newsBlock.children[0].textContent = formattedDate;
             
             newsBlock.children[1].children[0].children[0].textContent = Localize(settings.language, 'RSSNewsTitle');
@@ -334,7 +371,10 @@ async function SpawnRSS(popup: any) {
         const newsBlocksRange = Number(settings.newsBlocksRange);
 
         if (repeatEvery === 0) {
-            newsBlocksList.reverse().forEach(el => list.insertBefore(el, list.firstChild));
+            newsBlocksList.reverse().forEach(el => {
+                list.insertBefore(el, list.firstChild);
+                FitNewsBlock(el);
+            });
             return;
         }
 
@@ -348,7 +388,8 @@ async function SpawnRSS(popup: any) {
                 const children = list.children;
                 const insertBeforeEl = children[index] || null;
                 list.insertBefore(el, insertBeforeEl);
-                index++; 
+                FitNewsBlock(el);
+                index++;
             });
 
             i += newsBlocksRange;
