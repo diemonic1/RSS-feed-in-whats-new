@@ -41,7 +41,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "You can insert your own link into your RSS feed. If something is not displayed correctly, please notify the plugin developer.",
         "Other": "other",
         "RSSNewsTitle": "RSS News",
-        "UpdateRSSNews": "Update RSS news"
+        "UpdateRSSNews": "Update RSS news",
+        "ScrollSpeed": "Scroll speed",
+        "ScrollSpeedDescription": "Speed of automatic horizontal scrolling of the What's New feed (0 disables auto-scroll, max 10)"
     },
     "Russian": {
         "languageName": "Русский",
@@ -69,7 +71,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Вы можете вставить свою ссылку на источник RSS. Если что-то отображается некорректно, сообщите разработчику плагина.",
         "Other": "другое",
         "RSSNewsTitle": "RSS Новость",
-        "UpdateRSSNews": "Обновить RSS новости"
+        "UpdateRSSNews": "Обновить RSS новости",
+        "ScrollSpeed": "Скорость прокрутки",
+        "ScrollSpeedDescription": "Скорость автоматической горизонтальной прокрутки ленты \"Что нового\" (0 отключает автопрокрутку, максимум 10)"
       },
       "ChineseSimplified": {
         "languageName": "简体中文",
@@ -97,7 +101,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "你可以插入自己的 RSS 来源链接。如果显示不正确，请联系插件开发者。",
         "Other": "其他",
         "RSSNewsTitle": "RSS 新闻",
-        "UpdateRSSNews": "更新 RSS 新闻"
+        "UpdateRSSNews": "更新 RSS 新闻",
+        "ScrollSpeed": "滚动速度",
+        "ScrollSpeedDescription": "“新内容”栏自动水平滚动的速度（0 表示禁用自动滚动，最大值为 10）"
       },
       "Spanish": {
         "languageName": "Español",
@@ -125,7 +131,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Puedes insertar tu propio enlace de fuente RSS. Si algo no se muestra correctamente, notifícalo al desarrollador del plugin.",
         "Other": "otro",
         "RSSNewsTitle": "Noticia RSS",
-        "UpdateRSSNews": "Actualizar noticias RSS"
+        "UpdateRSSNews": "Actualizar noticias RSS",
+        "ScrollSpeed": "Velocidad de desplazamiento",
+        "ScrollSpeedDescription": "Velocidad del desplazamiento horizontal automático del feed de Novedades (0 desactiva el desplazamiento automático, máximo 10)"
       },
       "PortugueseBrazil": {
         "languageName": "Português (Brasil)",
@@ -153,7 +161,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Você pode inserir seu próprio link de fonte RSS. Se algo não for exibido corretamente, avise o desenvolvedor do plugin.",
         "Other": "outro",
         "RSSNewsTitle": "Notícia RSS",
-        "UpdateRSSNews": "Atualizar notícias RSS"
+        "UpdateRSSNews": "Atualizar notícias RSS",
+        "ScrollSpeed": "Velocidade de rolagem",
+        "ScrollSpeedDescription": "Velocidade da rolagem horizontal automática do feed de Novidades (0 desativa a rolagem automática, máximo 10)"
       },
       "German": {
         "languageName": "Deutsch",
@@ -181,7 +191,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Du kannst deinen eigenen RSS-Quellenlink einfügen. Wenn etwas nicht korrekt angezeigt wird, informiere bitte den Plugin-Entwickler.",
         "Other": "andere",
         "RSSNewsTitle": "RSS-Nachricht",
-        "UpdateRSSNews": "RSS-Nachrichten aktualisieren"
+        "UpdateRSSNews": "RSS-Nachrichten aktualisieren",
+        "ScrollSpeed": "Scrollgeschwindigkeit",
+        "ScrollSpeedDescription": "Geschwindigkeit des automatischen horizontalen Scrollens im Feed „Neuigkeiten“ (0 deaktiviert das automatische Scrollen, maximal 10)"
       },
       "French": {
         "languageName": "Français",
@@ -209,7 +221,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Vous pouvez insérer votre propre lien de source RSS. Si quelque chose ne s'affiche pas correctement, veuillez en informer le développeur du plugin.",
         "Other": "autre",
         "RSSNewsTitle": "Actualité RSS",
-        "UpdateRSSNews": "Mettre à jour les actualités RSS"
+        "UpdateRSSNews": "Mettre à jour les actualités RSS",
+        "ScrollSpeed": "Vitesse de défilement",
+        "ScrollSpeedDescription": "Vitesse du défilement horizontal automatique du flux Nouveautés (0 désactive le défilement automatique, maximum 10)"
       },
       "Japanese": {
         "languageName": "日本語",
@@ -237,7 +251,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "独自の RSS ソースリンクを入力できます。表示に問題がある場合は、プラグイン開発者にお知らせください。",
         "Other": "その他",
         "RSSNewsTitle": "RSS ニュース",
-        "UpdateRSSNews": "RSS ニュースを更新"
+        "UpdateRSSNews": "RSS ニュースを更新",
+        "ScrollSpeed": "スクロール速度",
+        "ScrollSpeedDescription": "「最新情報」フィードの自動横スクロール速度（0 で自動スクロールを無効化、最大 10）"
       },
       "Korean": {
         "languageName": "한국어",
@@ -265,7 +281,9 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "직접 RSS 소스 링크를 넣을 수 있습니다. 올바르게 표시되지 않으면 플러그인 개발자에게 알려주세요.",
         "Other": "기타",
         "RSSNewsTitle": "RSS 뉴스",
-        "UpdateRSSNews": "RSS 뉴스 업데이트"
+        "UpdateRSSNews": "RSS 뉴스 업데이트",
+        "ScrollSpeed": "스크롤 속도",
+        "ScrollSpeedDescription": "\"새 소식\" 피드의 자동 가로 스크롤 속도(0이면 자동 스크롤 비활성화, 최대 10)"
       },
       "Turkish": {
         "languageName": "Türkçe",
@@ -293,6 +311,8 @@ const LOCALIZATION = {
         "CustomRSSLinkDescription": "Kendi RSS kaynak bağlantınızı ekleyebilirsiniz. Bir şey doğru görüntülenmiyorsa lütfen eklenti geliştiricisine bildirin.",
         "Other": "diğer",
         "RSSNewsTitle": "RSS Haberi",
-        "UpdateRSSNews": "RSS haberlerini güncelle"
+        "UpdateRSSNews": "RSS haberlerini güncelle",
+        "ScrollSpeed": "Kaydırma hızı",
+        "ScrollSpeedDescription": "\"Yenilikler\" akışının otomatik yatay kaydırma hızı (0 otomatik kaydırmayı devre dışı bırakır, maksimum 10)"
     },
 };

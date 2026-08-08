@@ -12,6 +12,7 @@ export interface PluginSettings {
   rss_link: string;
   custom_rss_link: string;
   images_height: number;
+  scroll_speed: number;
 }
 
 const STORAGE_KEY = 'RSS-feed-in-whats-new-settings';
@@ -29,7 +30,8 @@ const DEFAULT_SETTINGS: PluginSettings = {
   highlite_quotes_color: "#ffffff",
   rss_link: "http://feeds.feedburner.com/ign/games-all",
   custom_rss_link: "http://feeds.feedburner.com/ign/games-all",
-  images_height: 135
+  images_height: 135,
+  scroll_speed: 0
 };
 
 export function getSettings(): PluginSettings {

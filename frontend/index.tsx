@@ -240,6 +240,13 @@ function SpawnUpdateNewsButton(panel: HTMLElement) {
   }
 }
 
+function FindNewsList(popup: any) {
+    const container = popup.m_popup.document.getElementById("popup_target");
+    if (!container) return null;
+
+    return container.querySelectorAll('[role="list"]')[0] ?? null;
+}
+
 async function SpawnRSS(popup: any) {
     let WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
 
@@ -279,14 +286,9 @@ async function SpawnRSS(popup: any) {
 
         objectJson = objectJson.channel.item.slice(0, newsCount);
 
-        const container = popup.m_popup.document.getElementById("popup_target");
+        const list = FindNewsList(popup);
 
-        if (container == null || container == undefined) 
-          return;
-
-        const list = container.querySelectorAll('[role="list"]')[0];
-
-        if (list == null || list == undefined) 
+        if (list == null || list == undefined)
           return;
 
         const elementToCopy = list.children[0];
@@ -401,6 +403,56 @@ async function SpawnRSS(popup: any) {
     }
 }
 
+const SCROLL_SPEED_MULTIPLIER = 20; // px/sec per settings.scroll_speed unit (0-10)
+const SCROLL_END_PAUSE_MS = 3000; // how long to hold on the last card before jumping back to the start
+
+let scrollOffset = 0;
+let scrollList: HTMLElement | null = null;
+let lastScrollFrameTime = 0;
+let scrollPausedUntil = 0;
+
+function TickAutoScroll(popup: any, time: number) {
+    const delta = Math.min(50, Math.max(0, time - lastScrollFrameTime));
+    lastScrollFrameTime = time;
+
+    if (!scrollList || !scrollList.isConnected) {
+        scrollList = FindNewsList(popup);
+    }
+
+    if (scrollList && settings.scroll_speed > 0) {
+        scrollList.style.setProperty('overflow', 'visible', 'important');
+        scrollList.style.setProperty('mask-image', 'none', 'important');
+
+        const visibleWidth = scrollList.parentElement?.clientWidth || 0;
+        const maxScroll = Math.max(0, scrollList.scrollWidth - visibleWidth);
+
+        if (maxScroll > 0) {
+            if (time < scrollPausedUntil) {
+                // holding on the last card - don't move
+            } else if (scrollOffset >= maxScroll) {
+                scrollOffset = 0;
+                scrollList.style.transform = `translateX(0px)`;
+            } else {
+                scrollOffset = Math.min(maxScroll, scrollOffset + (settings.scroll_speed * SCROLL_SPEED_MULTIPLIER * delta) / 1000);
+                scrollList.style.transform = `translateX(-${scrollOffset}px)`;
+
+                if (scrollOffset >= maxScroll) {
+                    scrollPausedUntil = time + SCROLL_END_PAUSE_MS;
+                }
+            }
+        }
+    } else if (scrollList) {
+        scrollList.style.removeProperty('overflow');
+        scrollList.style.removeProperty('mask-image');
+        scrollList.style.removeProperty('transform');
+
+        scrollOffset = 0;
+        scrollPausedUntil = 0;
+    }
+
+    popup.m_popup.window.requestAnimationFrame((nextTime: number) => TickAutoScroll(popup, nextTime));
+}
+
 async function OnPopupCreation(popup: any) {
     if (popup.m_strName === "SP Desktop_uid0") {
         popupGlobal = popup;
@@ -427,6 +479,8 @@ async function OnPopupCreation(popup: any) {
         });
 
         SpawnRSS(popup);
+
+        popup.m_popup.window.requestAnimationFrame((time: number) => TickAutoScroll(popup, time));
     }
 }
 
@@ -457,6 +511,7 @@ const SettingsContent = () => {
   const [rss_link, set_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
   const [custom_rss_link, set_custom_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
   const [images_height, set_images_height] = useState('135');
+  const [scroll_speed, set_scroll_speed] = useState('0');
 
   useEffect(() => {
     const settings = getSettings();
@@ -473,6 +528,7 @@ const SettingsContent = () => {
     set_rss_link(settings.rss_link);
     set_custom_rss_link(settings.custom_rss_link);
     set_images_height(String(settings.images_height));
+    set_scroll_speed(String(settings.scroll_speed));
   }, []);
 
   const onlanguageChange = (value: string) => {
@@ -565,6 +621,16 @@ const SettingsContent = () => {
     const numValue = parseInt(value, 10);
     if (!isNaN(numValue) && numValue >= 1 && numValue <= 300) {
       saveSettings({ ...getSettings(), images_height: numValue });
+      UpdateSettingsAndNews();
+    }
+  };
+
+  const onscroll_speedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    set_scroll_speed(value);
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 10) {
+      saveSettings({ ...getSettings(), scroll_speed: numValue });
       UpdateSettingsAndNews();
     }
   };
@@ -740,6 +806,19 @@ const SettingsContent = () => {
           />
         </>
       }
+
+      <PanelSection
+        title={`${Localize(language, 'ScrollSpeed')}: ${scroll_speed}`}
+      >
+        <TextField
+          description={Localize(language, 'ScrollSpeedDescription')}
+          mustBeNumeric={true}
+          rangeMin={0}
+          rangeMax={10}
+          value={scroll_speed}
+          onChange={onscroll_speedChange}
+        />
+      </PanelSection>
     </>
   );
 };
