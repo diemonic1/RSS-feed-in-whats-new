@@ -13,6 +13,12 @@ const print_error = callable<[{ text: string }], string>('print_error');
 
 const TITLE_MAX_LINES = 4;
 
+// Faintly tinted 1x1 SVG shown while the real image preloads (see preloadImage in SpawnRSS).
+const IMAGE_LOADING_PLACEHOLDER =
+    'data:image/svg+xml,' + encodeURIComponent(
+        "<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='#ffffff' fill-opacity='0.06'/></svg>"
+    );
+
 let settings = null;
 let popupGlobal = null;
 
@@ -338,9 +344,14 @@ async function SpawnRSS(popup: any) {
 
             newsBlock.children[1].children[0].children[1].textContent = description;
 
-            newsBlock.children[1].children[1].children[0].src = image;
+            const imageEl = newsBlock.children[1].children[1].children[0];
+            imageEl.src = IMAGE_LOADING_PLACEHOLDER;
 
-            newsBlock.children[1].children[1].children[0].style.cssText 
+            const preloadImage = new Image();
+            preloadImage.onload = () => { imageEl.src = image; };
+            preloadImage.src = image;
+
+            imageEl.style.cssText
               = "height: " + settings.images_height.toString() + "px; object-fit: cover;";
 
             newsBlock.children[1].children[1].removeChild(newsBlock.children[1].children[1].children[1]);
