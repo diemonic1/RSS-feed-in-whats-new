@@ -6,11 +6,21 @@
 
 A plugin for Steam to adding RSS news to "whats new" block
 
+> ### 🚫 Don't want the news at all?
+> The plugin can **completely disable the "What's New" section** in the Steam Library.
+> Turn on **"Completely disable the news section"** at the top of the plugin settings - the whole
+> block is removed from the library, and the plugin stops fetching and displaying any news.
+
 <img alt="image" src="https://github.com/user-attachments/assets/6d9a6d18-b055-4f70-b578-afd3ef7797d6" />
 
 Settings:
 
+disable_news_section - completely disables the "What's New" section in the Steam Library (off by default)
+
 rss_link - you can independently specify any news source of your choice
+
+Additional RSS sources - add as many extra feeds as you like. News from all sources is merged and
+sorted by publication date, duplicates are ignored, and every headline is labelled with its source
 
 newsCount - the number of news items to display
 

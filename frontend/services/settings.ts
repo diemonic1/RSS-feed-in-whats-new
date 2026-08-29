@@ -1,8 +1,17 @@
+export interface RssSourceEntry {
+  id: string;
+  value: string;
+  custom_value: string;
+}
+
 export interface PluginSettings {
   language: string;
   newsCount: number;
   alternateEveryNblocks: number;
   newsBlocksRange: number;
+  disable_news_section: boolean;
+  override_base_text: boolean;
+  override_base_text_color: string;
   highlite_english_letters: boolean;
   highlite_english_letters_color: string;
   highlite_numbers: boolean;
@@ -11,6 +20,7 @@ export interface PluginSettings {
   highlite_quotes_color: string;
   rss_link: string;
   custom_rss_link: string;
+  extra_rss_sources: RssSourceEntry[];
   images_height: number;
   scroll_speed: number;
 }
@@ -22,6 +32,9 @@ const DEFAULT_SETTINGS: PluginSettings = {
   newsCount: 10,
   alternateEveryNblocks: 1,
   newsBlocksRange: 2,
+  disable_news_section: false,
+  override_base_text: false,
+  override_base_text_color: "#ffffff80",
   highlite_english_letters: false,
   highlite_english_letters_color: "#ffffff",
   highlite_numbers: true,
@@ -30,6 +43,7 @@ const DEFAULT_SETTINGS: PluginSettings = {
   highlite_quotes_color: "#ffffff",
   rss_link: "http://feeds.feedburner.com/ign/games-all",
   custom_rss_link: "http://feeds.feedburner.com/ign/games-all",
+  extra_rss_sources: [],
   images_height: 135,
   scroll_speed: 0
 };

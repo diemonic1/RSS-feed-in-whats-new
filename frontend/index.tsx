@@ -1,7 +1,7 @@
-import { Millennium, IconsModule, definePlugin, callable, Field, 
-  TextField, Toggle, PanelSection, DropdownItem} from '@steambrew/client';
+import { Millennium, IconsModule, definePlugin, callable, Field,
+  TextField, Toggle, PanelSection, DropdownItem, DialogButton} from '@steambrew/client';
 import { useState, useEffect } from 'react';
-import { getSettings, saveSettings } from './services/settings';
+import { getSettings, saveSettings, RssSourceEntry } from './services/settings';
 import { Localize, GetLanguageOptions } from './services/localization';
 
 const WaitForElement = async (sel: string, parent = document) =>
@@ -9,14 +9,13 @@ const WaitForElement = async (sel: string, parent = document) =>
 
 const get_url_data = callable<[{ url: string }], string>('get_url_data');
 const print_log = callable<[{ text: string }], string>('print_log');
-const print_error = callable<[{ text: string }], string>('print_error');
 
 const TITLE_MAX_LINES = 4;
 
 // Faintly tinted 1x1 SVG shown while the real image preloads (see preloadImage in SpawnRSS).
 const IMAGE_LOADING_PLACEHOLDER =
     'data:image/svg+xml,' + encodeURIComponent(
-        "<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='#ffffff' fill-opacity='0.06'/></svg>"
+        "<svg xmlns='http://www.w3.org/2000/svg' width='1' height='1'><rect width='1' height='1' fill='#222222' fill-opacity='0.06'/></svg>"
     );
 
 let settings = null;
@@ -106,6 +105,91 @@ function RenderTitleHtml(title: string) {
     return result;
 }
 
+// xmlToObject returns a plain string for a simple text node, but an object when
+// the node also carries attributes or children. This flattens both shapes so a
+// feed's markup never reaches the rendering code as a non-string.
+function AsText(value: any): string {
+    if (value == null) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) return AsText(value[0]);
+    if (typeof value === 'object') return AsText(value['#text']);
+
+    return '';
+}
+
+function GetSourceLabel(url: string): string {
+    try {
+        const hostname = new URL(url).hostname;
+        const parts = hostname.split('.').filter(Boolean);
+
+        if (parts.length >= 2) {
+            return parts.slice(-2).join('.');
+        }
+
+        return hostname || url;
+    } catch {
+        return url;
+    }
+}
+
+function BuildSourceUrlList(): string[] {
+    const primaryUrl = settings.rss_link === 'other' ? settings.custom_rss_link : settings.rss_link;
+
+    const extraUrls = (settings.extra_rss_sources ?? []).map((source: RssSourceEntry) =>
+        source.value === 'other' ? source.custom_value : source.value
+    );
+
+    const allUrls = [primaryUrl, ...extraUrls].map((url: string) => (url ?? '').trim()).filter(Boolean);
+
+    return Array.from(new Set(allUrls));
+}
+
+// True for bodies that are plainly a web page rather than a feed: a blocked
+// source (Cloudflare challenge, consent wall, error page) answers with HTML
+// that would otherwise die in the XML parser.
+function LooksLikeHtmlPage(body: string): boolean {
+    const head = body.slice(0, 1000).toLowerCase();
+
+    return head.includes('<!doctype html')
+        || head.includes('<html')
+        || head.includes('<head>')
+        || head.includes('<body');
+}
+
+// Never throws: a source that cannot be downloaded or parsed simply
+// contributes no items, so the remaining sources still render.
+async function FetchSourceItems(url: string): Promise<any[]> {
+    try {
+        const body = await get_url_data({ url });
+
+        if (!body || typeof body !== 'string' || body.trim() === '') {
+            SyncLog(`source returned no data, skipping: ${url}`);
+            return [];
+        }
+
+        if (LooksLikeHtmlPage(body)) {
+            SyncLog(`source returned an HTML page instead of a feed, skipping: ${url}`);
+            return [];
+        }
+
+        const parsed: any = xmlToObject(body);
+        const rawItems = parsed?.channel?.item;
+        const items = Array.isArray(rawItems) ? rawItems : (rawItems ? [rawItems] : []);
+
+        if (items.length === 0) {
+            SyncLog(`source contains no news items, skipping: ${url}`);
+            return [];
+        }
+
+        return items.map((item: any) => ({ ...item, __sourceUrl: url }));
+    }
+    catch (error) {
+        SyncLog(`failed to read source ${url}: ${error}`);
+        return [];
+    }
+}
+
 function CountLines(el: HTMLElement): number {
     const range = document.createRange();
     range.selectNodeContents(el);
@@ -126,6 +210,68 @@ function FitTextElement(el: HTMLElement, maxLines: number) {
 
 function FitNewsBlock(newsBlock: any) {
     FitTextElement(newsBlock.children[2], TITLE_MAX_LINES);
+}
+
+// XML predefines only &amp; &lt; &gt; &quot; &apos;, but feeds routinely use
+// HTML entities on top of those. A strict XML parser rejects them outright, so
+// the common ones are rewritten as numeric references it does understand.
+const HTML_ENTITY_CODES: Record<string, number> = {
+    nbsp: 160, iexcl: 161, cent: 162, pound: 163, curren: 164, yen: 165,
+    sect: 167, uml: 168, copy: 169, laquo: 171, not: 172, reg: 174,
+    deg: 176, plusmn: 177, sup2: 178, sup3: 179, micro: 181, para: 182,
+    middot: 183, frac14: 188, frac12: 189, frac34: 190, iquest: 191,
+    raquo: 187, times: 215, divide: 247, ndash: 8211, mdash: 8212,
+    lsquo: 8216, rsquo: 8217, sbquo: 8218, ldquo: 8220, rdquo: 8221,
+    bdquo: 8222, dagger: 8224, Dagger: 8225, bull: 8226, hellip: 8230,
+    permil: 8240, prime: 8242, Prime: 8243, lsaquo: 8249, rsaquo: 8250,
+    euro: 8364, trade: 8482,
+};
+
+const XML_BUILTIN_ENTITIES = new Set(['amp', 'lt', 'gt', 'quot', 'apos']);
+
+function SanitizeXmlTextSegment(segment: string): string {
+    return segment
+        // Named entities: keep the five XML built-ins, translate known HTML
+        // ones, and neutralise anything else so it survives as literal text.
+        .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (match, name: string) => {
+            if (XML_BUILTIN_ENTITIES.has(name)) return match;
+
+            const code = HTML_ENTITY_CODES[name];
+            return code ? `&#${code};` : `&amp;${name};`;
+        })
+        // A bare '&' that starts no entity at all (e.g. in a raw query string).
+        .replace(/&(?![a-zA-Z][a-zA-Z0-9]*;|#\d+;|#x[0-9a-fA-F]+;)/g, '&amp;')
+        // A '<' that opens no tag, closing tag, comment/CDATA or instruction.
+        .replace(/<(?![a-zA-Z\/!?])/g, '&lt;');
+}
+
+// Escapes stray characters that would abort parsing ("invalid element name"),
+// leaving real markup and CDATA payloads untouched.
+function EscapeStrayXmlChars(xml: string): string {
+    const CDATA_OPEN = '<![CDATA[';
+    const CDATA_CLOSE = ']]>';
+
+    let result = '';
+    let i = 0;
+
+    while (i < xml.length) {
+        const cdataStart = xml.indexOf(CDATA_OPEN, i);
+
+        if (cdataStart === -1) {
+            result += SanitizeXmlTextSegment(xml.slice(i));
+            break;
+        }
+
+        result += SanitizeXmlTextSegment(xml.slice(i, cdataStart));
+
+        const cdataContentEnd = xml.indexOf(CDATA_CLOSE, cdataStart + CDATA_OPEN.length);
+        const cdataEndIndex = cdataContentEnd === -1 ? xml.length : cdataContentEnd + CDATA_CLOSE.length;
+
+        result += xml.slice(cdataStart, cdataEndIndex);
+        i = cdataEndIndex;
+    }
+
+    return result;
 }
 
 function xmlToObject(xmlStr: string) {
@@ -157,7 +303,7 @@ function xmlToObject(xmlStr: string) {
       value = value.slice(firstTagIndex);
     }
 
-    return value;
+    return EscapeStrayXmlChars(value);
   };
 
   const normalizedXml = normalizeXmlString(xmlStr);
@@ -171,7 +317,6 @@ function xmlToObject(xmlStr: string) {
   function parseNode(node: any): any {
     const obj: Record<string, any> = {};
 
-    // атрибуты
     if (node.attributes && node.attributes.length > 0) {
       obj["@attributes"] = {};
       Array.from(node.attributes as Attr[]).forEach((attr) => {
@@ -180,7 +325,7 @@ function xmlToObject(xmlStr: string) {
     }
 
     node.childNodes.forEach((child: any) => {
-      if (child.nodeType === 1) { // элемент
+      if (child.nodeType === 1) {
         const childObj = parseNode(child);
         if (obj[child.nodeName]) {
           if (!Array.isArray(obj[child.nodeName])) obj[child.nodeName] = [obj[child.nodeName]];
@@ -188,15 +333,13 @@ function xmlToObject(xmlStr: string) {
         } else {
           obj[child.nodeName] = childObj;
         }
-      } else if (child.nodeType === 3 || child.nodeType === 4) { // текст или CDATA
+      } else if (child.nodeType === 3 || child.nodeType === 4) {
         const text = (child.nodeValue ?? "").trim();
         if (text) obj["#text"] = text;
       }
     });
 
-    // если объект пустой
     if (Object.keys(obj).length === 0) return null;
-    // если только текст
     if (Object.keys(obj).length === 1 && obj["#text"] !== undefined) return obj["#text"];
 
     return obj;
@@ -253,7 +396,18 @@ function FindNewsList(popup: any) {
     return container.querySelectorAll('[role="list"]')[0] ?? null;
 }
 
+// Wrapper so a failure anywhere in the render path stays contained: the feed
+// simply keeps Steam's own news instead of surfacing an unhandled rejection.
 async function SpawnRSS(popup: any) {
+    try {
+        await SpawnRSSUnsafe(popup);
+    }
+    catch {
+        // Nothing actionable here - the next mutation retries the render.
+    }
+}
+
+async function SpawnRSSUnsafe(popup: any) {
     let WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
 
     if (WideRightPanel == null || WideRightPanel == undefined) return;
@@ -268,29 +422,27 @@ async function SpawnRSS(popup: any) {
         if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
           return;
 
-        let result = "";
+        const sourceUrls = BuildSourceUrlList();
 
-        if (settings.rss_link == "other") {
-          result = await get_url_data({ url: settings.custom_rss_link });
-        }
-        else {
-          result = await get_url_data({ url: settings.rss_link });
-        }
+        const parsedSources = await Promise.all(sourceUrls.map((url) => FetchSourceItems(url)));
 
-        let objectJson = {};
-
-        try{
-            objectJson = xmlToObject(result);
-        }
-        catch (error) {
-            SyncLog("EROOR: " + error);
-            await print_error({ text: "EROOR: " + error });
-            return;
-        }
+        // The observer keeps calling us while the feeds are downloading, so a
+        // parallel run may have finished first. Everything from here down is
+        // synchronous, which makes this re-check an atomic claim on the render.
+        if (popup.m_popup.document.getElementById("RSSNewBlock") != undefined)
+          return;
 
         const newsCount = Number(settings.newsCount);
 
-        objectJson = objectJson.channel.item.slice(0, newsCount);
+        const objectJson = parsedSources
+            .flat()
+            .sort((a: any, b: any) =>
+                (new Date(AsText(b.pubDate)).getTime() || 0) - (new Date(AsText(a.pubDate)).getTime() || 0)
+            )
+            .slice(0, newsCount);
+
+        if (objectJson.length === 0)
+          return;
 
         const list = FindNewsList(popup);
 
@@ -299,34 +451,42 @@ async function SpawnRSS(popup: any) {
 
         const elementToCopy = list.children[0];
 
+        // Cloning one of our own already-rewritten blocks would produce broken
+        // copies and feed the observer new mutations forever.
+        if (elementToCopy == null || elementToCopy.id === "RSSNewBlock")
+          return;
+
         let newsBlocksList = [];
 
         objectJson.forEach(element => {
-            let dateStr = element.pubDate;
+            let dateStr = AsText(element.pubDate);
 
             const date = new Date(dateStr);
+            const hasValidDate = !isNaN(date.getTime());
+
             const day = date.getDate().toString().padStart(2, '0');
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const year = date.getFullYear();
             const hours = date.getHours().toString().padStart(2, '0');
             const minutes = date.getMinutes().toString().padStart(2, '0');
 
-            const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
+            const formattedDate = hasValidDate ? `${day}.${month}.${year} ${hours}:${minutes}` : '';
+            const sourceLabel = GetSourceLabel(element.__sourceUrl);
 
             let image = "no image or error parsing";
             let description = "no description or error parsing";
             let title = "no title or error parsing";
 
             if (element["media:thumbnail"] != undefined)
-                image = element["media:thumbnail"];
+                image = AsText(element["media:thumbnail"]) || AsText(element["media:thumbnail"]?.["@attributes"]?.url);
             else if (element.enclosure != undefined)
-                image = element.enclosure["@attributes"].url;
+                image = AsText(element.enclosure?.["@attributes"]?.url);
 
             if (element.description != undefined)
-                description = element.description.replace("[…]", "");
+                description = AsText(element.description).replace("[…]", "");
 
             if (element.title != undefined)
-                title = element.title;
+                title = AsText(element.title);
 
             if (description.length > 125) {
                 description = description.slice(0, 125) + '…';
@@ -334,11 +494,13 @@ async function SpawnRSS(popup: any) {
 
             title = RenderTitleHtml(title);
 
-            const link = element.link;
+            const link = AsText(element.link) || AsText(element.link?.["@attributes"]?.href);
 
             const newsBlock = elementToCopy.cloneNode(true);
 
-            newsBlock.children[0].textContent = formattedDate;
+            newsBlock.children[0].textContent = formattedDate
+              ? `${formattedDate} | ${sourceLabel}`
+              : sourceLabel;
             
             newsBlock.children[1].children[0].children[0].textContent = Localize(settings.language, 'RSSNewsTitle');
 
@@ -361,9 +523,14 @@ async function SpawnRSS(popup: any) {
             }
 
             newsBlock.removeChild(newsBlock.children[3]);
-            newsBlock.children[2].innerHTML = title;
 
-            newsBlock.children[2].addEventListener("click", async () => {
+            const titleEl = newsBlock.children[2].children[0].children[0];
+            titleEl.innerHTML = title;
+
+            titleEl.style.cssText = "max-height: 75px !important; -webkit-line-clamp: 4 !important;"
+              + (settings.override_base_text ? ` color: ${settings.override_base_text_color} !important;` : "");
+
+            titleEl.addEventListener("click", async () => {
     			    SteamClient.System.OpenInSystemBrowser(link);
             });
 
@@ -470,8 +637,14 @@ async function OnPopupCreation(popup: any) {
 
         InjectPopupStyles(popup.m_popup.document);
 
+        if (settings.disable_news_section) {
+            const updatesContainer = await WaitForElement('[class*="UpdatesContainer"]', popup.m_popup.document);
+            updatesContainer?.remove();
+            return;
+        }
+
         const WideRightPanel = await WaitForElement("div.WideRightPanel", popup.m_popup.document);
-    
+
         if (WideRightPanel == null || WideRightPanel == undefined) return;
 
         const WideRightPanelParent = WideRightPanel.parentElement.parentElement;
@@ -513,6 +686,9 @@ const SettingsContent = () => {
   const [newsCount, setNewsCount] = useState('10');
   const [alternateEveryNblocks, setAlternateEveryNblocks] = useState('1');
   const [newsBlocksRange, setNewsBlocksRange] = useState('2');
+  const [disable_news_section, set_disable_news_section] = useState(false);
+  const [override_base_text, set_override_base_text] = useState(false);
+  const [override_base_text_color, set_override_base_text_color] = useState('#ffffff80');
   const [highlite_english_letters, set_highlite_english_letters] = useState(false);
   const [highlite_english_letters_color, set_highlite_english_letters_color] = useState('#ffffff');
   const [highlite_numbers, set_highlite_numbers] = useState(true);
@@ -523,6 +699,7 @@ const SettingsContent = () => {
   const [custom_rss_link, set_custom_rss_link] = useState('http://feeds.feedburner.com/ign/games-all');
   const [images_height, set_images_height] = useState('135');
   const [scroll_speed, set_scroll_speed] = useState('0');
+  const [extra_rss_sources, set_extra_rss_sources] = useState<RssSourceEntry[]>([]);
 
   useEffect(() => {
     const settings = getSettings();
@@ -530,6 +707,9 @@ const SettingsContent = () => {
     setNewsCount(String(settings.newsCount));
     setAlternateEveryNblocks(String(settings.alternateEveryNblocks));
     setNewsBlocksRange(String(settings.newsBlocksRange));
+    set_disable_news_section(settings.disable_news_section);
+    set_override_base_text(settings.override_base_text);
+    set_override_base_text_color(settings.override_base_text_color);
     set_highlite_english_letters(settings.highlite_english_letters);
     set_highlite_english_letters_color(settings.highlite_english_letters_color);
     set_highlite_numbers(settings.highlite_numbers);
@@ -540,6 +720,7 @@ const SettingsContent = () => {
     set_custom_rss_link(settings.custom_rss_link);
     set_images_height(String(settings.images_height));
     set_scroll_speed(String(settings.scroll_speed));
+    set_extra_rss_sources(settings.extra_rss_sources ?? []);
   }, []);
 
   const onlanguageChange = (value: string) => {
@@ -576,6 +757,23 @@ const SettingsContent = () => {
       saveSettings({ ...getSettings(), newsBlocksRange: numValue });
       UpdateSettingsAndNews();
     }
+  };
+
+  const ondisable_news_sectionChange = (checked: boolean) => {
+    set_disable_news_section(checked);
+    saveSettings({ ...getSettings(), disable_news_section: checked });
+  };
+
+  const onoverride_base_textChange = (checked: boolean) => {
+    set_override_base_text(checked);
+    saveSettings({ ...getSettings(), override_base_text: checked });
+    UpdateSettingsAndNews();
+  };
+
+  const onoverride_base_text_colorChange = (value: string) => {
+    set_override_base_text_color(value);
+    saveSettings({ ...getSettings(), override_base_text_color: value });
+    UpdateSettingsAndNews();
   };
 
   const onhighlite_english_lettersChange = (checked: boolean) => {
@@ -625,7 +823,44 @@ const SettingsContent = () => {
     saveSettings({ ...getSettings(), custom_rss_link: value });
     UpdateSettingsAndNews();
   };
-  
+
+  const onAddRssSource = () => {
+    const newSource: RssSourceEntry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      value: rssOptions[0].data,
+      custom_value: rssOptions[0].data,
+    };
+    const updated = [...extra_rss_sources, newSource];
+    set_extra_rss_sources(updated);
+    saveSettings({ ...getSettings(), extra_rss_sources: updated });
+    UpdateSettingsAndNews();
+  };
+
+  const onRemoveRssSource = (id: string) => {
+    const updated = extra_rss_sources.filter((source) => source.id !== id);
+    set_extra_rss_sources(updated);
+    saveSettings({ ...getSettings(), extra_rss_sources: updated });
+    UpdateSettingsAndNews();
+  };
+
+  const onRssSourceValueChange = (id: string, value: string) => {
+    const updated = extra_rss_sources.map((source) =>
+      source.id === id ? { ...source, value } : source
+    );
+    set_extra_rss_sources(updated);
+    saveSettings({ ...getSettings(), extra_rss_sources: updated });
+    UpdateSettingsAndNews();
+  };
+
+  const onRssSourceCustomValueChange = (id: string, value: string) => {
+    const updated = extra_rss_sources.map((source) =>
+      source.id === id ? { ...source, custom_value: value } : source
+    );
+    set_extra_rss_sources(updated);
+    saveSettings({ ...getSettings(), extra_rss_sources: updated });
+    UpdateSettingsAndNews();
+  };
+
   const onimages_heightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     set_images_height(value);
@@ -686,7 +921,18 @@ const SettingsContent = () => {
         />
       </PanelSection>
 
-      <PanelSection 
+      <PanelSection
+        title={Localize(language, 'DisableNewsSection')}
+      >
+        <Field label={Localize(language, 'DisableNewsSection')} description={Localize(language, 'DisableNewsSectionDescription')} bottomSeparator="standard">
+          <Toggle
+            value={disable_news_section}
+            onChange={ondisable_news_sectionChange}
+          />
+        </Field>
+      </PanelSection>
+
+      <PanelSection
         title={`${Localize(language, 'NewsCount')}: ${newsCount}`}
       >
         <TextField
@@ -725,7 +971,24 @@ const SettingsContent = () => {
 
       <br></br>
 
-      <PanelSection 
+      <PanelSection
+        title={Localize(language, 'OverrideBaseTextColor')}
+      >
+        <Field label={Localize(language, 'OverrideBaseTextColor')} description={Localize(language, 'OverrideBaseTextColorDescription')} bottomSeparator="standard">
+          <Toggle
+            value={override_base_text}
+            onChange={onoverride_base_textChange}
+          />
+        </Field>
+        <br></br>
+        <TextField
+          label={Localize(language, 'OverrideBaseTextColorColor')}
+          value={override_base_text_color}
+          onChange={(e) => onoverride_base_text_colorChange(e.target.value)}
+        />
+      </PanelSection>
+
+      <PanelSection
         title={Localize(language, 'HighliteEnglishLetters')}
       >
         <Field label={Localize(language, 'HighliteEnglishLetters')} description={Localize(language, 'HighliteEnglishLettersDescription')} bottomSeparator="standard">
@@ -789,7 +1052,20 @@ const SettingsContent = () => {
         />
       </PanelSection>
 
-      <PanelSection 
+      <PanelSection
+        title={`${Localize(language, 'ScrollSpeed')}: ${scroll_speed}`}
+      >
+        <TextField
+          description={Localize(language, 'ScrollSpeedDescription')}
+          mustBeNumeric={true}
+          rangeMin={0}
+          rangeMax={10}
+          value={scroll_speed}
+          onChange={onscroll_speedChange}
+        />
+      </PanelSection>
+
+      <PanelSection
         title={Localize(language, 'RSSFeedLink')}
       >
         <p>{Localize(language, 'RSSFeedLinkDescription')}</p>
@@ -818,17 +1094,45 @@ const SettingsContent = () => {
         </>
       }
 
+      {extra_rss_sources.map((source, index) => {
+        const selectedExtraOption =
+          rssOptions.find((option) => option.data === source.value) ?? rssOptions[0];
+
+        return (
+          <PanelSection
+            key={source.id}
+            title={`${Localize(language, 'AdditionalRssSources')} #${index + 1}`}
+          >
+            <DropdownItem
+              label={selectedExtraOption.label}
+              bottomSeparator="none"
+              rgOptions={rssOptions}
+              selectedOption={selectedExtraOption}
+              menuLabel={selectedExtraOption.label}
+              strDefaultLabel={selectedExtraOption.label}
+              onChange={(selected) => onRssSourceValueChange(source.id, String(selected.data))}
+            />
+            {
+              source.value === 'other' &&
+              <TextField
+                label={Localize(language, 'CustomRSSLink')}
+                value={source.custom_value}
+                onChange={(e) => onRssSourceCustomValueChange(source.id, e.target.value)}
+              />
+            }
+            <DialogButton onClick={() => onRemoveRssSource(source.id)}>
+              {Localize(language, 'RemoveRssSource')}
+            </DialogButton>
+          </PanelSection>
+        );
+      })}
+
       <PanelSection
-        title={`${Localize(language, 'ScrollSpeed')}: ${scroll_speed}`}
+        title={extra_rss_sources.length === 0 ? Localize(language, 'AdditionalRssSources') : undefined}
       >
-        <TextField
-          description={Localize(language, 'ScrollSpeedDescription')}
-          mustBeNumeric={true}
-          rangeMin={0}
-          rangeMax={10}
-          value={scroll_speed}
-          onChange={onscroll_speedChange}
-        />
+        <DialogButton onClick={onAddRssSource}>
+          {Localize(language, 'AddRssSource')}
+        </DialogButton>
       </PanelSection>
     </>
   );
