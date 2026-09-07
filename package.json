@@ -23,8 +23,5 @@
 		"@steambrew/client": "^5.5.3",
 		"@steambrew/ttc": "^2.7.3",
 		"@steambrew/webkit": "^5.5.3"
-	},
-	"pnpm": {
-		"onlyBuiltDependencies": ["@parcel/watcher"]
 	}
 }
