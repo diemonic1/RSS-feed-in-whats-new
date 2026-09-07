@@ -804,7 +804,7 @@ const SettingsContent = () => {
     set_highlite_quotes(checked);
     saveSettings({ ...getSettings(), highlite_quotes: checked });
     UpdateSettingsAndNews();
-  };
+  }; 
 
   const onhighlite_quotes_colorChange = (value: string) => {
     set_highlite_quotes_color(value);
